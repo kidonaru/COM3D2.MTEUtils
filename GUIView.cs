@@ -30,7 +30,6 @@ namespace COM3D2.MotionTimelineEditor
         bool isDir { get; }
         bool isSelected { get; }
         bool canDelete { get; }
-        int order { get; }
         List<ITileViewContent> children { get; }
         ITileViewContent parent { get; set; }
 
@@ -38,10 +37,13 @@ namespace COM3D2.MotionTimelineEditor
         int GetDirCount(bool recursive);
         void AddChild(ITileViewContent child);
         void RemoveChild(ITileViewContent child);
+        void RemoveAllChildren();
         void RemoveFromParent();
+        void GetAllChildren(List<ITileViewContent> result);
+        void GetAllFiles(List<ITileViewContent> result);
     }
 
-    public abstract class TileViewContentBase : ITileViewContent
+    public class TileViewContentBase : ITileViewContent
     {
         public virtual string name { get; set; }
         public virtual string setumei { get; set; }
@@ -73,11 +75,10 @@ namespace COM3D2.MotionTimelineEditor
         public virtual bool isDir { get; set; }
         public virtual bool isSelected { get; set; }
         public virtual bool canDelete { get; set; }
-        public virtual int order { get; set; }
         public virtual List<ITileViewContent> children { get; set; }
         public virtual ITileViewContent parent { get; set; }
 
-        public int GetFileCount(bool recursive)
+        public virtual int GetFileCount(bool recursive)
         {
             if (!isDir || children == null)
             {
@@ -102,7 +103,7 @@ namespace COM3D2.MotionTimelineEditor
             return count;
         }
 
-        public int GetDirCount(bool recursive)
+        public virtual int GetDirCount(bool recursive)
         {
             if (!isDir || children == null)
             {
@@ -127,7 +128,7 @@ namespace COM3D2.MotionTimelineEditor
             return count;
         }
 
-        public void AddChild(ITileViewContent child)
+        public virtual void AddChild(ITileViewContent child)
         {
             if (children == null)
             {
@@ -148,7 +149,7 @@ namespace COM3D2.MotionTimelineEditor
             child.parent = this;
         }
 
-        public void RemoveChild(ITileViewContent child)
+        public virtual void RemoveChild(ITileViewContent child)
         {
             if (children != null)
             {
@@ -158,9 +159,88 @@ namespace COM3D2.MotionTimelineEditor
             child.parent = null;
         }
 
-        public void RemoveFromParent()
+        public virtual void RemoveAllChildren()
+        {
+            if (children != null)
+            {
+                foreach (var child in children)
+                {
+                    child.parent = null;
+                }
+                children.Clear();
+            }
+        }
+
+        public virtual void RemoveFromParent()
         {
             parent?.RemoveChild(this);
+        }
+
+        public virtual void GetAllChildren(List<ITileViewContent> result)
+        {
+            if (children == null)
+            {
+                return;
+            }
+
+            foreach (var child in children)
+            {
+                result.Add(child);
+                child.GetAllChildren(result);
+            }
+        }
+
+        public virtual void GetAllFiles(List<ITileViewContent> result)
+        {
+            if (children == null)
+            {
+                return;
+            }
+
+            foreach (var child in children)
+            {
+                if (!child.isDir)
+                {
+                    result.Add(child);
+                }
+                else
+                {
+                    child.GetAllFiles(result);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 一時的なタイルビュー用のコンテンツ
+    /// 子どもの親を操作しない
+    /// </summary>
+    public class TempTileViewContent : TileViewContentBase
+    {
+        public override void AddChild(ITileViewContent child)
+        {
+            if (children == null)
+            {
+                children = new List<ITileViewContent>(16);
+            }
+
+            children.Add(child);
+        }
+
+        public override void RemoveChild(ITileViewContent child)
+        {
+            if (children != null)
+            {
+                children.Remove(child);
+            }
+        }
+
+        public override void RemoveAllChildren()
+        {
+            if (children != null)
+            {
+                children.Clear();
+            }
         }
     }
 
@@ -606,11 +686,12 @@ namespace COM3D2.MotionTimelineEditor
             float width,
             float height,
             float offsetSize = 0f,
-            bool enabled = true)
+            bool enabled = true,
+            GUIStyle style = null)
         {
             var drawRect = GetDrawRect(width, height);
             BeginEnabled(enabled);
-            bool result = GUI.Button(drawRect, "", gsButton);
+            bool result = GUI.Button(drawRect, "", style ?? gsButton);
             if (!GUI.enabled) BeginColor(new Color(1f, 1f, 1f, 0.5f));
             DrawTileThumb(texture, offsetSize * 0.5f, offsetSize * 0.5f, drawRect.width - offsetSize, drawRect.height - offsetSize);
             if (!GUI.enabled) EndColor();
@@ -848,9 +929,11 @@ namespace COM3D2.MotionTimelineEditor
         {
             public string label;
             public float labelWidth;
+            public float width;
             public string value;
             public Action<string> onChanged;
             public int maxLines;
+            public bool hiddenButton;
         }
 
         public GUIView subView;
@@ -880,7 +963,7 @@ namespace COM3D2.MotionTimelineEditor
         public bool DrawTextField(TextFieldOption option)
         {
             var height = option.maxLines > 1 ? 20 * option.maxLines : 20;
-            var subViewRect = GetDrawRect(-1, height);
+            var subViewRect = GetDrawRect(option.width > 0 ? option.width : -1, height);
             var updated = false;
 
             BeginSubView(subViewRect, LayoutDirection.Horizontal);
@@ -890,7 +973,8 @@ namespace COM3D2.MotionTimelineEditor
                     subView.DrawLabel(option.label, option.labelWidth, 20);
                 }
 
-                var fieldWidth = subViewRect.width - subView.currentPos.x - 20 * 2;
+                var buttonWidth = option.hiddenButton ? 0 : 20 * 2;
+                var fieldWidth = subViewRect.width - subView.currentPos.x - buttonWidth;
 
                 updated = subView.DrawTextField(
                     "",
@@ -901,14 +985,17 @@ namespace COM3D2.MotionTimelineEditor
                     option.onChanged,
                     option.maxLines > 1);
 
-                if (subView.DrawButton("C", 20, 20))
+                if (!option.hiddenButton)
                 {
-                    GUIUtility.systemCopyBuffer = option.value;
-                }
+                    if (subView.DrawButton("C", 20, 20))
+                    {
+                        GUIUtility.systemCopyBuffer = option.value;
+                    }
 
-                if (subView.DrawButton("P", 20, 20))
-                {
-                    option.onChanged(GUIUtility.systemCopyBuffer);
+                    if (subView.DrawButton("P", 20, 20))
+                    {
+                        option.onChanged(GUIUtility.systemCopyBuffer);
+                    }
                 }
             }
             EndSubView();
@@ -1612,37 +1699,12 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
-        public void DrawTileViewFlatContent(
-            ITileViewContent content,
-            float tileWidth,
-            float tileHeight,
-            Action<ITileViewContent> onSelected,
-            Action<ITileViewContent> onMouseOver,
-            Action<ITileViewContent> onDeleted)
-        {
-            if (content.isDir)
-            {
-                if (content.children != null && content.children.Count > 0)
-                {
-                    foreach (var child in content.children)
-                    {
-                        DrawTileViewFlatContent(child, tileWidth, tileHeight, onSelected, onMouseOver, onDeleted);
-                    }
-                }
-            }
-            else
-            {
-                DrawTileViewContent(content, tileWidth, tileHeight, onSelected, onMouseOver, onDeleted);
-            }
-        }
-
         public void DrawTileView(
             ITileViewContent content,
             float width,
             float height,
             float tileWidth,
             float tileHeight,
-            bool isFlat,
             Action<ITileViewContent> onSelected,
             Action<ITileViewContent> onMouseOver = null,
             Action<ITileViewContent> onDeleted = null)
@@ -1658,14 +1720,7 @@ namespace COM3D2.MotionTimelineEditor
 
             foreach (var child in content.children)
             {
-                if (isFlat)
-                {
-                    DrawTileViewFlatContent(child, tileWidth, tileHeight, onSelected, onMouseOver, onDeleted);
-                }
-                else
-                {
-                    DrawTileViewContent(child, tileWidth, tileHeight, onSelected, onMouseOver, onDeleted);
-                }
+                DrawTileViewContent(child, tileWidth, tileHeight, onSelected, onMouseOver, onDeleted);
             }
 
             EndLayout();
@@ -1794,6 +1849,7 @@ namespace COM3D2.MotionTimelineEditor
         {
             public string label;
             public float labelWidth;
+            public float width;
             public FloatFieldType fieldType;
             public float min;
             public float max;
@@ -1810,12 +1866,13 @@ namespace COM3D2.MotionTimelineEditor
 
             var newValue = option.value;
             var updated = false;
+            var width = option.width == 0f ? 250f : option.width;
 
-            var subViewRect = GetDrawRect(250, 20);
+            var subViewRect = GetDrawRect(width, 20f);
             
             BeginSubView(subViewRect, LayoutDirection.Horizontal);
             {
-                var sliderWidth = 170f;
+                var sliderWidth = width - 80f;
 
                 var label = fieldCache.label;
                 if (!string.IsNullOrEmpty(label))
@@ -2028,34 +2085,41 @@ namespace COM3D2.MotionTimelineEditor
             return updated;
         }
 
-        public T DrawTabs<T>(T currentTab, float width, float height)
+        public T DrawTabs<T>(
+            T currentTab,
+            float width,
+            float height,
+            float tabMargin = 0f)
         {
             var tabTypes = Enum.GetValues(typeof(T));
-            var savedMargin = margin;
-            margin = 0;
 
-            BeginLayout(LayoutDirection.Horizontal);
+            var maxWidth = viewRect.width - currentPos.x - padding.x;
+            var subViewWidth = Mathf.Min((width + tabMargin) * tabTypes.Length, maxWidth);
+            var rows = Mathf.CeilToInt((width + tabMargin) * tabTypes.Length / maxWidth);
+            var subViewHeight = height * rows;
+            var subViewRect = GetDrawRect(subViewWidth, subViewHeight);
+
+            BeginSubView(subViewRect, LayoutDirection.Horizontal);
             {
+                subView.margin = tabMargin;
                 foreach (T tabType in tabTypes)
                 {
-                    if (currentPos.x + width > viewRect.width)
+                    if (subView.currentPos.x + width > subView.viewRect.width)
                     {
-                        EndLayout();
-                        BeginLayout(LayoutDirection.Horizontal);
+                        subView.EndLayout();
+                        subView.BeginLayout(LayoutDirection.Horizontal);
                     }
 
                     var color = currentTab.Equals(tabType) ? Color.green : Color.white;
-                    if (DrawButton(tabType.ToString(), width, height, true, color))
+                    if (subView.DrawButton(tabType.ToString(), width, height, true, color))
                     {
                         currentTab = tabType;
                     }
                 }
             }
-            EndLayout();
+            EndSubView();
 
             AddSpace(5);
-
-            margin = savedMargin;
 
             return currentTab;
         }

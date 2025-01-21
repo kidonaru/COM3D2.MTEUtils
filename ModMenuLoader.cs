@@ -9,7 +9,7 @@ namespace COM3D2.MotionTimelineEditor
 {
     public class MenuInfo
     {
-        public static int CacheVersion = 14;
+        public static int CacheVersion = 17;
 
         public string fileName;
         public string path;
@@ -27,6 +27,8 @@ namespace COM3D2.MotionTimelineEditor
         public string modBaseFileName;
         public long lastWriteAt;
         public bool isHidden;
+        public bool isOfficial;
+        public bool isMan;
 
         public static MenuInfo Deserialize(BinaryReader binaryReader)
         {
@@ -48,6 +50,8 @@ namespace COM3D2.MotionTimelineEditor
                 modBaseFileName = binaryReader.ReadNullableString(),
                 lastWriteAt = binaryReader.ReadInt64(),
                 isHidden = binaryReader.ReadBoolean(),
+                isOfficial = binaryReader.ReadBoolean(),
+                isMan = binaryReader.ReadBoolean(),
             };
         }
 
@@ -70,6 +74,30 @@ namespace COM3D2.MotionTimelineEditor
             binaryWriter.WriteNullableString(modBaseFileName);
             binaryWriter.Write(lastWriteAt);
             binaryWriter.Write(isHidden);
+            binaryWriter.Write(isOfficial);
+            binaryWriter.Write(isMan);
+        }
+
+        public void Dump()
+        {
+            MTEUtils.Log("fileName: {0}", fileName);
+            MTEUtils.Log("path: {0}", path);
+            MTEUtils.Log("rid: {0}", rid);
+            MTEUtils.Log("name: {0}", name);
+            MTEUtils.Log("setumei: {0}", setumei);
+            MTEUtils.Log("mpn: {0}", mpn);
+            MTEUtils.Log("iconName: {0}", iconName);
+            MTEUtils.Log("iconData: {0}", iconData.Length);
+            MTEUtils.Log("priority: {0}", priority);
+            MTEUtils.Log("modelFileName: {0}", modelFileName);
+            MTEUtils.Log("colorSetMPN: {0}", colorSetMPN);
+            MTEUtils.Log("colorSetMenuName: {0}", colorSetMenuName);
+            MTEUtils.Log("variationBaseFileName: {0}", variationBaseFileName);
+            MTEUtils.Log("modBaseFileName: {0}", modBaseFileName);
+            MTEUtils.Log("lastWriteAt: {0}", lastWriteAt);
+            MTEUtils.Log("isHidden: {0}", isHidden);
+            MTEUtils.Log("isOfficial: {0}", isOfficial);
+            MTEUtils.Log("isMan: {0}", isMan);
         }
     }
 
@@ -92,30 +120,25 @@ namespace COM3D2.MotionTimelineEditor
                 return menu;
             }
 
-            menu = LoadDirect(menuFileName, string.Empty, ref _fileBuffer);
+            menu = LoadDirect(menuFileName, string.Empty, false, ref _fileBuffer);
             menuCache[menuFileName] = menu;
 
             return menu;
         }
 
-        private static readonly Regex _variationRegex = new Regex("_z\\d{1,4}");
-        private static readonly Regex _zurashiRegex = new Regex("_zurashi\\d{0,4}");
-        private static readonly Regex _mekureRegex = new Regex("_mekure\\d{0,4}");
-        private static readonly Regex _pororiRegex = new Regex("_porori\\d{0,4}");
-        private static readonly Regex _backRegex = new Regex("_back\\d{0,4}");
+        private static readonly Regex _variationRegex = new Regex("_z\\d{1,4}", RegexOptions.Compiled);
 
-        public static MenuInfo LoadDirect(string menuFileName, string menuFilePath = "")
+        public static MenuInfo LoadDirect(string menuFileName, string menuFilePath = "", bool isOfficial = false)
         {
-            return LoadDirect(menuFileName, menuFilePath, ref _fileBuffer);
+            return LoadDirect(menuFileName, menuFilePath, isOfficial, ref _fileBuffer);
         }
 
         public static MenuInfo LoadDirect(
             string menuFileName,
             string menuFilePath,
+            bool isOfficial,
             ref byte[] fileBuffer)
         {
-            menuFileName = menuFileName.ToLower();
-
             if (menuFileName.IndexOf("mod_") == 0)
             {
                 return LoadModDirect(menuFileName, menuFilePath, ref fileBuffer);
@@ -123,11 +146,6 @@ namespace COM3D2.MotionTimelineEditor
 
             try
             {
-                if (!menuFileName.EndsWith(".menu", StringComparison.Ordinal))
-                {
-                    menuFileName += ".menu";
-                }
-
                 byte[] buffer = BinaryLoader.ReadAFileBase(menuFileName, ref fileBuffer);
                 if (buffer == null)
                 {
@@ -136,8 +154,9 @@ namespace COM3D2.MotionTimelineEditor
 
                 var menu = new MenuInfo
                 {
-                    fileName = menuFileName,
+                    fileName = menuFileName.ToLower(),
                     rid = menuFileName.GetHashCode(),
+                    isOfficial = isOfficial,
                 };
 
                 using (var reader = new BinaryReader(new MemoryStream(buffer), Encoding.UTF8))
@@ -221,7 +240,14 @@ namespace COM3D2.MotionTimelineEditor
                                 if (stringList.Length > 2 && !string.IsNullOrEmpty(stringList[1]))
                                 {
                                     menu.colorSetMPN = MPNUtils.GetMPN(stringList[1]);
-                                    menu.colorSetMenuName = stringList[2];
+                                    menu.colorSetMenuName = stringList[2].ToLower();
+                                }
+                            }
+                            else if (stringCom == "メニューフォルダ")
+                            {
+                                if (stringList.Length > 1 && stringList[1].ToLower() == "man")
+                                {
+                                    menu.isMan = true;
                                 }
                             }
                         }
@@ -248,7 +274,7 @@ namespace COM3D2.MotionTimelineEditor
             {
                 var menu = new MenuInfo
                 {
-                    fileName = menuFileName,
+                    fileName = menuFileName.ToLower(),
                     rid = menuFileName.GetHashCode(),
                 };
 

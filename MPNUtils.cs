@@ -41,7 +41,6 @@ namespace COM3D2.MotionTimelineEditor
             // 体
             { MPN.folder_skin, "肌" },
             { MPN.chikubi, "乳首" },
-            { MPN.chikubicolor, "乳首色" },
             { MPN.acctatoo, "タトゥー" },
             { MPN.folder_underhair, "アンダーヘア" },
             { MPN.body, "ボディ" },
@@ -129,7 +128,6 @@ namespace COM3D2.MotionTimelineEditor
             // 体
             { MPN.folder_skin, MPNCategory.Body },
             { MPN.chikubi, MPNCategory.Body },
-            { MPN.chikubicolor, MPNCategory.Body },
             { MPN.acctatoo, MPNCategory.Body },
             { MPN.folder_underhair, MPNCategory.Body },
             { MPN.body, MPNCategory.Body },

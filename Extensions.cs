@@ -498,6 +498,21 @@ namespace COM3D2.MotionTimelineEditor
             return value;
         }
 
+        public static TValue GetOrCreate<TKey, TValue>(
+            this Dictionary<TKey, TValue> self,
+            TKey key,
+            Func<TValue> create)
+        {
+            TValue value;
+            if (!self.TryGetValue(key, out value))
+            {
+                value = create();
+                self[key] = value;
+            }
+
+            return value;
+        }
+
         public static TValue GetOrDefault<TKey, TValue>(this Dictionary<TKey, TValue> self, TKey key)
         {
             TValue value;

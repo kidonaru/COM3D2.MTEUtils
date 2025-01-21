@@ -275,5 +275,17 @@ namespace COM3D2.MotionTimelineEditor
         {
             MainThreadDispatcher.Enqueue(action);
         }
+
+        private static readonly Dictionary<CharacterMgr.PresetType, string> _presetTypeName = new Dictionary<CharacterMgr.PresetType, string>
+        {
+            { CharacterMgr.PresetType.Wear, "服" },
+            { CharacterMgr.PresetType.Body, "体" },
+            { CharacterMgr.PresetType.All, "服/体" },
+        };
+
+        public static string GetPresetTypeName(CharacterMgr.PresetType presetType)
+        {
+            return _presetTypeName.GetOrDefault(presetType, "");
+        }
     }
 }

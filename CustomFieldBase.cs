@@ -6,8 +6,8 @@ namespace COM3D2.MotionTimelineEditor
 {
     public abstract class CustomFieldBase
     {
-        public Assembly assembly;
-        public abstract Type assemblyType { get; set; }
+        public Assembly assembly { get; set; }
+        public virtual Type assemblyType { get; set; }
 
         public virtual Dictionary<string, string> typeNames { get; } = new Dictionary<string, string>
         {
@@ -27,9 +27,11 @@ namespace COM3D2.MotionTimelineEditor
         {
         };
 
-        public virtual bool Init()
+        public virtual bool Init(Assembly assembly = null)
         {
-            if (!LoadAssembly())
+            this.assembly = assembly;
+
+            if (assembly == null && !LoadAssembly())
             {
                 return false;
             }
