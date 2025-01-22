@@ -6,6 +6,8 @@ namespace COM3D2.MotionTimelineEditor
 {
     public class MainThreadDispatcher : MonoBehaviour
     {
+        private const int MaxActionsPerUpdate = 10;
+
         private static MainThreadDispatcher _instance;
         private static readonly Queue<Action> _actionQueue = new Queue<Action>();
         private static readonly object _lockObject = new object();
@@ -38,7 +40,7 @@ namespace COM3D2.MotionTimelineEditor
 
             lock (_lockObject)
             {
-                while (_actionQueue.Count > 0)
+                while (_actionQueue.Count > 0 && actionsToRun.Count < MaxActionsPerUpdate)
                 {
                     actionsToRun.Add(_actionQueue.Dequeue());
                 }
