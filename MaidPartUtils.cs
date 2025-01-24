@@ -98,9 +98,9 @@ namespace COM3D2.MotionTimelineEditor
 
             // セット
             { MaidPartType.set_body, "体型" },
-            { MaidPartType.set_maidwear, "メイド服セット" },
-            { MaidPartType.set_mywear, "私服セット" },
-            { MaidPartType.set_underwear, "下着セット" },
+            { MaidPartType.set_maidwear, "メイド服" },
+            { MaidPartType.set_mywear, "私服" },
+            { MaidPartType.set_underwear, "下着" },
         };
 
         public static string GetMaidPartName(MaidPartType type)
@@ -207,10 +207,12 @@ namespace COM3D2.MotionTimelineEditor
             { MaidPartCategory.Set, new Color(0.8f, 0.5f, 0.2f, 1f) },
         };
 
-        public static Color GetMaidPartColor(MaidPartType type)
+        public static Color GetMaidPartColor(MaidPartType type, float alpha)
         {
             var category = GetMaidPartCategory(type);
-            return _maidPartCategoryColorMap.GetOrDefault(category);
+            var color = _maidPartCategoryColorMap.GetOrDefault(category);
+            color.a = alpha;
+            return color;
         }
 
         public static IEnumerable<MaidPartType> GetAllMaidPartType()
