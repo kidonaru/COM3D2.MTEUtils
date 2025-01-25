@@ -11,6 +11,8 @@ namespace COM3D2.MotionTimelineEditor
         float keyRepeatTime { get; }
         bool useHSVColor { get; set; }
         Texture2D changeIcon { get; }
+        Texture2D favoriteOffIcon { get; }
+        Texture2D favoriteOnIcon { get; }
     }
 
     public class GUIOptionBase : IGUIOption
@@ -19,6 +21,8 @@ namespace COM3D2.MotionTimelineEditor
         public virtual float keyRepeatTime { get; } = 1f / 30f;
         public virtual bool useHSVColor { get; set; } = false;
         public virtual Texture2D changeIcon => GUIView.texWhite;
+        public virtual Texture2D favoriteOffIcon { get; }
+        public virtual Texture2D favoriteOnIcon { get; }
     }
 
     public interface ITileViewContent
@@ -30,6 +34,8 @@ namespace COM3D2.MotionTimelineEditor
         bool isDir { get; }
         bool isSelected { get; }
         bool canDelete { get; }
+        bool isFavorite { get; set; }
+        bool canFavorite { get; set; }
         List<ITileViewContent> children { get; }
         ITileViewContent parent { get; set; }
 
@@ -75,6 +81,8 @@ namespace COM3D2.MotionTimelineEditor
         public virtual bool isDir { get; set; }
         public virtual bool isSelected { get; set; }
         public virtual bool canDelete { get; set; }
+        public virtual bool isFavorite { get; set; }
+        public virtual bool canFavorite { get; set; }
         public virtual List<ITileViewContent> children { get; set; }
         public virtual ITileViewContent parent { get; set; }
 
@@ -692,9 +700,7 @@ namespace COM3D2.MotionTimelineEditor
             var drawRect = GetDrawRect(width, height);
             BeginEnabled(enabled);
             bool result = GUI.Button(drawRect, "", style ?? gsButton);
-            if (!GUI.enabled) BeginColor(new Color(1f, 1f, 1f, 0.5f));
             DrawTileThumb(texture, offsetSize * 0.5f, offsetSize * 0.5f, drawRect.width - offsetSize, drawRect.height - offsetSize);
-            if (!GUI.enabled) EndColor();
             EndEnabled();
             NextElement(drawRect);
             return result;
@@ -1491,12 +1497,18 @@ namespace COM3D2.MotionTimelineEditor
             float width,
             float height)
         {
+            var drawRect = GetDrawRect(currentPos.x + x, currentPos.y + y, width, height);
+            DrawTileThumb(thumb, drawRect);
+        }
+
+        public void DrawTileThumb(
+            Texture2D thumb,
+            Rect drawRect)
+        {
             if (thumb == null)
             {
                 return;
             }
-
-            var drawRect = GetDrawRect(currentPos.x + x, currentPos.y + y, width, height);
 
             float aspect = (float)thumb.width / thumb.height;
 
@@ -1512,7 +1524,10 @@ namespace COM3D2.MotionTimelineEditor
             float thumbY = drawRect.y + (drawRect.height - thmbHeight) / 2;
 
             var imageRect = new Rect(thumbX, thumbY, thmbWidth, thmbHeight);
+
+            if (!GUI.enabled) BeginColor(new Color(1f, 1f, 1f, 0.5f));
             GUI.DrawTexture(imageRect, thumb);
+            if (!GUI.enabled) EndColor();
         }
 
         public bool DrawTile(
@@ -1532,9 +1547,21 @@ namespace COM3D2.MotionTimelineEditor
             }
 
             var deleteButtonRect = new Rect(drawRect.x, drawRect.y, 20, 20);
+            var favoriteButtonRect = new Rect(drawRect.x, drawRect.y, 20, 20);
+
+            if (onDeleted != null && content.canDelete)
+            {
+                favoriteButtonRect.x += 20;
+            }
 
             if (onDeleted != null && content.canDelete &&
                 deleteButtonRect.Contains(Event.current.mousePosition))
+            {
+                BeginEnabled(false);
+            }
+
+            if (content.canFavorite &&
+                favoriteButtonRect.Contains(Event.current.mousePosition))
             {
                 BeginEnabled(false);
             }
@@ -1570,12 +1597,11 @@ namespace COM3D2.MotionTimelineEditor
                 DrawRectInternal(drawRect, Color.green, 2);
             }
 
-            if (onMouseOver != null)
+            bool isMouseOver = drawRect.Contains(Event.current.mousePosition);
+
+            if (onMouseOver != null && isMouseOver)
             {
-                if (drawRect.Contains(Event.current.mousePosition))
-                {
-                    onMouseOver.Invoke(content);
-                }
+                onMouseOver.Invoke(content);
             }
 
             if (onDeleted != null && content.canDelete)
@@ -1583,6 +1609,20 @@ namespace COM3D2.MotionTimelineEditor
                 if (GUI.Button(deleteButtonRect, "x", gsButton))
                 {
                     onDeleted.Invoke(content);
+                }
+            }
+
+            if (content.canFavorite)
+            {
+                var favoriteTexture = content.isFavorite ? option.favoriteOnIcon : option.favoriteOffIcon;
+                if (isMouseOver || content.isFavorite)
+                {
+                    if (GUI.Button(favoriteButtonRect, "", gsButton))
+                    {
+                        content.isFavorite = !content.isFavorite;
+                    }
+
+                    DrawTileThumb(favoriteTexture, favoriteButtonRect);
                 }
             }
 
@@ -1606,7 +1646,29 @@ namespace COM3D2.MotionTimelineEditor
                 return false;
             }
 
+            var deleteButtonRect = new Rect(drawRect.x, drawRect.y, 20, 20);
+            var favoriteButtonRect = new Rect(drawRect.x, drawRect.y, 20, 20);
+
+            if (onDeleted != null && content.canDelete)
+            {
+                favoriteButtonRect.x += 20;
+            }
+
+            if (onDeleted != null && content.canDelete &&
+                deleteButtonRect.Contains(Event.current.mousePosition))
+            {
+                BeginEnabled(false);
+            }
+
+            if (content.canFavorite &&
+                favoriteButtonRect.Contains(Event.current.mousePosition))
+            {
+                BeginEnabled(false);
+            }
+
             bool isClicked = GUI.Button(drawRect, "", gsTile);
+
+            EndEnabled();
 
             var thumbWidth = drawRect.width / 2;
             var thumbHeight = (drawRect.height - 20) / 2;
@@ -1648,20 +1710,32 @@ namespace COM3D2.MotionTimelineEditor
                 GUI.Label(tagRect, content.tag, gsTagLabel);
             }
 
-            if (onMouseOver != null)
+            bool isMouseOver = drawRect.Contains(Event.current.mousePosition);
+
+            if (onMouseOver != null && isMouseOver)
             {
-                if (drawRect.Contains(Event.current.mousePosition))
-                {
-                    onMouseOver.Invoke(content);
-                }
+                onMouseOver.Invoke(content);
             }
 
             if (onDeleted != null && content.canDelete)
             {
-                var deleteButtonRect = new Rect(drawRect.x, drawRect.y, 20, 20);
                 if (GUI.Button(deleteButtonRect, "x", gsButton))
                 {
                     onDeleted.Invoke(content);
+                }
+            }
+
+            if (content.canFavorite)
+            {
+                var favoriteTexture = content.isFavorite ? option.favoriteOnIcon : option.favoriteOffIcon;
+                if (isMouseOver || content.isFavorite)
+                {
+                    if (GUI.Button(favoriteButtonRect, "", gsButton))
+                    {
+                        content.isFavorite = !content.isFavorite;
+                    }
+
+                    DrawTileThumb(favoriteTexture, favoriteButtonRect);
                 }
             }
 
