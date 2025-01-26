@@ -32,7 +32,17 @@ namespace COM3D2.MotionTimelineEditor
             return _maidPartTypeMap.GetOrDefault(name.ToLower());
         }
 
-        private readonly static Dictionary<MaidPartType, string> _maidPartNameMap = new Dictionary<MaidPartType, string>
+        private static readonly Dictionary<MaidPartType, string> _maidPartNameMap =
+                Enum.GetValues(typeof(MaidPartType)).Cast<MaidPartType>().ToDictionary(
+                    type => type,
+                    type => type.ToString());
+
+        public static string GetMaidPartName(MaidPartType type)
+        {
+            return _maidPartNameMap.GetOrDefault(type);
+        }
+
+        private readonly static Dictionary<MaidPartType, string> _maidPartJpNameMap = new Dictionary<MaidPartType, string>
         {
             // 顔
             { MaidPartType.head, "顔" },
@@ -103,9 +113,9 @@ namespace COM3D2.MotionTimelineEditor
             { MaidPartType.set_underwear, "下着" },
         };
 
-        public static string GetMaidPartName(MaidPartType type)
+        public static string GetMaidPartJpName(MaidPartType type)
         {
-            var name = _maidPartNameMap.GetOrDefault(type);
+            var name = _maidPartJpNameMap.GetOrDefault(type);
             return string.IsNullOrEmpty(name) ? type.ToString() : name;
         }
 
@@ -217,7 +227,7 @@ namespace COM3D2.MotionTimelineEditor
 
         public static IEnumerable<MaidPartType> GetAllMaidPartType()
         {
-            return _maidPartNameMap.Keys;
+            return _maidPartJpNameMap.Keys;
         }
 
         /// <summary>
