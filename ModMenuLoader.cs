@@ -9,7 +9,7 @@ namespace COM3D2.MotionTimelineEditor
 {
     public class MenuInfo
     {
-        public static int CacheVersion = 2;
+        public static int CacheVersion = 3;
 
         public string fileName;
         public string path;
