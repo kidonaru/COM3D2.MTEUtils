@@ -8,12 +8,13 @@ namespace COM3D2.MotionTimelineEditor
     {
         private static readonly Dictionary<string, MPN> _mpnTypeMap =
                 Enum.GetValues(typeof(MPN)).Cast<MPN>().ToDictionary(
-                    mpn => mpn.ToString().ToLower(),
-                    mpn => mpn);
+                    mpn => mpn.ToString(),
+                    mpn => mpn,
+                    StringComparer.OrdinalIgnoreCase);
 
         public static MPN GetMPN(string mpnName)
         {
-            return _mpnTypeMap.GetOrDefault(mpnName.ToLower());
+            return _mpnTypeMap.GetOrDefault(mpnName);
         }
     }
 }

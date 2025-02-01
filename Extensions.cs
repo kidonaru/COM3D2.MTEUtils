@@ -379,6 +379,43 @@ namespace COM3D2.MotionTimelineEditor
             baseFinger.value_fist = source.value_fist;
         }
 
+        public static ColorPaletteManager.ColorData.CommonItem GetItem(
+            this ref ColorPaletteManager.ColorData self,
+            ColorPaletteManager.Category category)
+        {
+            if (category == ColorPaletteManager.Category.Main)
+            {
+                return self.main;
+            }
+            else if (category == ColorPaletteManager.Category.Shadow)
+            {
+                return self.shadow;
+            }
+            else
+            {
+                return self.outline;
+            }
+        }
+
+        public static void SetItem(
+            this ref ColorPaletteManager.ColorData self,
+            ColorPaletteManager.Category category,
+            ColorPaletteManager.ColorData.CommonItem item)
+        {
+            if (category == ColorPaletteManager.Category.Main)
+            {
+                self.main = item;
+            }
+            else if (category == ColorPaletteManager.Category.Shadow)
+            {
+                self.shadow = item;
+            }
+            else
+            {
+                self.outline = item;
+            }
+        }
+
         public static List<string> GetTags(this TMorph morph)
         {
             if (morph != null)
@@ -455,6 +492,17 @@ namespace COM3D2.MotionTimelineEditor
             return Color.white;
         }
 
+        private static readonly Dictionary<string, MaidParts.PARTS_COLOR> _partsColorIdMap =
+                Enum.GetValues(typeof(MaidParts.PARTS_COLOR)).Cast<MaidParts.PARTS_COLOR>().ToDictionary(
+                    type => type.ToString(),
+                    type => type,
+                    StringComparer.OrdinalIgnoreCase);
+
+        public static MaidParts.PARTS_COLOR ToPartsColorId(this string name)
+        {
+            return _partsColorIdMap.GetOrDefault(name, MaidParts.PARTS_COLOR.NONE);
+        }
+
         public static void RemoveAllButFirst<T>(this List<T> list)
         {
             if (list == null)
@@ -513,8 +561,15 @@ namespace COM3D2.MotionTimelineEditor
             return value;
         }
 
-        public static TValue GetOrDefault<TKey, TValue>(this Dictionary<TKey, TValue> self, TKey key)
+        public static TValue GetOrDefault<TKey, TValue>(
+            this Dictionary<TKey, TValue> self,
+            TKey key)
         {
+            if (key == null)
+            {
+                return default(TValue);
+            }
+
             TValue value;
             if (!self.TryGetValue(key, out value))
             {
@@ -529,6 +584,11 @@ namespace COM3D2.MotionTimelineEditor
             TKey key,
             TValue defaultValue)
         {
+            if (key == null)
+            {
+                return defaultValue;
+            }
+
             TValue value;
             if (!self.TryGetValue(key, out value))
             {

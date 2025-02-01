@@ -87,6 +87,32 @@ namespace COM3D2.MotionTimelineEditor
             texture.Apply();
         }
 
+        public static void DrawCircleFillTexture(
+            Texture2D texture,
+            Vector2 center,
+            float radius,
+            Color color)
+        {
+            var length2 = radius * radius;
+            var width = texture.width;
+            var height = texture.height;
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    float distanceX = x - center.x;
+                    float distanceY = y - center.y;
+                    if (distanceX * distanceX + distanceY * distanceY <= length2)
+                    {
+                        texture.SetPixel(x, y, color);
+                    }
+                }
+            }
+
+            texture.Apply();
+        }
+
         // ひし形のテクスチャを作成
         public static Texture2D CreateDiamondTexture(
             int size,

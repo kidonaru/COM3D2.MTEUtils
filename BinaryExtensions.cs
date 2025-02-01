@@ -61,9 +61,9 @@ namespace COM3D2.MotionTimelineEditor
             return result;
         }
 
-        public static MaidPartType ReadMPN(this BinaryReader binaryReader)
+        public static MaidPartType ReadMaidPartType(this BinaryReader binaryReader)
         {
-            return MaidPartUtils.GetMaidPartType(binaryReader.ReadString());
+            return binaryReader.ReadString().ToMaidPartType();
         }
     }
 }

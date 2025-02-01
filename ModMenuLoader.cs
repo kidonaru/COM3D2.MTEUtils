@@ -9,7 +9,7 @@ namespace COM3D2.MotionTimelineEditor
 {
     public class MenuInfo
     {
-        public static int CacheVersion = 3;
+        public static int CacheVersion = 4;
 
         public string fileName;
         public string path;
@@ -25,6 +25,7 @@ namespace COM3D2.MotionTimelineEditor
         public string colorSetMenuName;
         public string variationBaseFileName;
         public string modBaseFileName;
+        public MaidParts.PARTS_COLOR partsColorId = MaidParts.PARTS_COLOR.NONE;
         public long lastWriteAt;
         public bool isHidden;
         public bool isOfficial;
@@ -74,6 +75,7 @@ namespace COM3D2.MotionTimelineEditor
                 colorSetMenuName = binaryReader.ReadNullableString(),
                 variationBaseFileName = binaryReader.ReadNullableString(),
                 modBaseFileName = binaryReader.ReadNullableString(),
+                partsColorId = (MaidParts.PARTS_COLOR)binaryReader.ReadInt32(),
                 lastWriteAt = binaryReader.ReadInt64(),
                 isHidden = binaryReader.ReadBoolean(),
                 isOfficial = binaryReader.ReadBoolean(),
@@ -98,6 +100,7 @@ namespace COM3D2.MotionTimelineEditor
             binaryWriter.WriteNullableString(colorSetMenuName);
             binaryWriter.WriteNullableString(variationBaseFileName);
             binaryWriter.WriteNullableString(modBaseFileName);
+            binaryWriter.Write((int)partsColorId);
             binaryWriter.Write(lastWriteAt);
             binaryWriter.Write(isHidden);
             binaryWriter.Write(isOfficial);
@@ -120,6 +123,7 @@ namespace COM3D2.MotionTimelineEditor
             MTEUtils.Log("colorSetMenuName: {0}", colorSetMenuName);
             MTEUtils.Log("variationBaseFileName: {0}", variationBaseFileName);
             MTEUtils.Log("modBaseFileName: {0}", modBaseFileName);
+            MTEUtils.Log("partsColorId: {0}", partsColorId);
             MTEUtils.Log("lastWriteAt: {0}", lastWriteAt);
             MTEUtils.Log("isHidden: {0}", isHidden);
             MTEUtils.Log("isOfficial: {0}", isOfficial);
@@ -237,7 +241,7 @@ namespace COM3D2.MotionTimelineEditor
                             {
                                 if (stringList.Length > 1 && !string.IsNullOrEmpty(stringList[1]))
                                 {
-                                    menu.maidPartType = MaidPartUtils.GetMaidPartType(stringList[1]);
+                                    menu.maidPartType = stringList[1].ToMaidPartType();
                                 }
                             }
                             else if (stringCom == "icons" || stringCom == "icon")
@@ -265,7 +269,7 @@ namespace COM3D2.MotionTimelineEditor
                             {
                                 if (stringList.Length > 2 && !string.IsNullOrEmpty(stringList[1]))
                                 {
-                                    menu.colorSetMaidPartType = MaidPartUtils.GetMaidPartType(stringList[1]);
+                                    menu.colorSetMaidPartType = stringList[1].ToMaidPartType();
                                     menu.colorSetMenuName = stringList[2].ToLower();
                                 }
                             }
@@ -274,6 +278,14 @@ namespace COM3D2.MotionTimelineEditor
                                 if (stringList.Length > 1 && stringList[1].ToLower() == "man")
                                 {
                                     menu.isMan = true;
+                                }
+                            }
+                            else if (stringCom == "tex" || stringCom == "テクスチャ変更")
+                            {
+                                if (stringList.Length == 6)
+                                {
+                                    menu.partsColorId = stringList[5].ToPartsColorId();
+                                    MTEUtils.Log("menuFileName: {0} partsColorId={1} => {2}", menuFileName, stringList[5], menu.partsColorId);
                                 }
                             }
                         }
@@ -335,15 +347,34 @@ namespace COM3D2.MotionTimelineEditor
                     menu.iconName = binaryReader.ReadString();
                     menu.modBaseFileName = binaryReader.ReadString();
                     menu.name = binaryReader.ReadString();
-                    menu.maidPartType = binaryReader.ReadMPN();
+                    menu.maidPartType = binaryReader.ReadMaidPartType();
                     menu.setumei = binaryReader.ReadString();
-                    menu.colorSetMaidPartType = binaryReader.ReadMPN();
+                    menu.colorSetMaidPartType = binaryReader.ReadMaidPartType();
                     if (menu.colorSetMaidPartType != MaidPartType.null_mpn)
                     {
                         menu.colorSetMenuName = binaryReader.ReadString();
                     }
 
-                    binaryReader.ReadString();
+                    var s = binaryReader.ReadString();
+                    using (StringReader stringReader = new StringReader(s))
+                    {
+                        string line;
+                        while ((line = stringReader.ReadLine()) != null)
+                        {
+                            string[] stringList = line.Split(new char[]
+                            {
+                                '\t',
+                                ' '
+                            }, StringSplitOptions.RemoveEmptyEntries);
+                            if (stringList[0] == "テクスチャ変更")
+                            {
+                                if (stringList.Length == 6)
+                                {
+                                    menu.partsColorId = stringList[5].ToPartsColorId();
+                                }
+                            }
+                        }
+                    }
 
                     int num = binaryReader.ReadInt32();
                     for (int j = 0; j < num; j++)

@@ -10,6 +10,7 @@ namespace COM3D2.MotionTimelineEditor
         float keyRepeatTimeFirst { get; }
         float keyRepeatTime { get; }
         bool useHSVColor { get; set; }
+        Color windowHoverColor { get; }
         Texture2D changeIcon { get; }
         Texture2D favoriteOffIcon { get; }
         Texture2D favoriteOnIcon { get; }
@@ -20,6 +21,7 @@ namespace COM3D2.MotionTimelineEditor
         public virtual float keyRepeatTimeFirst { get; } = 0.15f;
         public virtual float keyRepeatTime { get; } = 1f / 30f;
         public virtual bool useHSVColor { get; set; } = false;
+        public virtual Color windowHoverColor { get; } = new Color(48 / 255f, 48 / 255f, 48 / 255f, 224 / 255f);
         public virtual Texture2D changeIcon => GUIView.texWhite;
         public virtual Texture2D favoriteOffIcon { get; }
         public virtual Texture2D favoriteOnIcon { get; }
@@ -373,6 +375,35 @@ namespace COM3D2.MotionTimelineEditor
         private List<TransformCache> _transformCaches = new List<TransformCache>();
         private int _transformCacheIndex = 0;
 
+        private static GUIStyle _gsWin = null;
+        public static GUIStyle gsWin
+        {
+            get
+            {
+                if (_gsWin == null)
+                {
+                    _gsWin = new GUIStyle("box")
+                    {
+                        fontSize = 12,
+                        alignment = TextAnchor.UpperLeft,
+                    };
+
+                    var windowHoverColor = option.windowHoverColor;
+                    var hoverTex = GUIView.CreateColorTexture(windowHoverColor);
+
+                    _gsWin.onHover.background = hoverTex;
+                    _gsWin.hover.background = hoverTex;
+                    _gsWin.onFocused.background = hoverTex;
+                    _gsWin.focused.background = hoverTex;
+
+                    _gsWin.onHover.textColor = Color.white;
+                    _gsWin.hover.textColor = Color.white;
+                    _gsWin.onFocused.textColor = Color.white;
+                    _gsWin.focused.textColor = Color.white;
+                }
+                return _gsWin;
+            }
+        }
         public static GUIStyle gsLabel = new GUIStyle("label")
         {
             fontSize = 12,
@@ -776,6 +807,29 @@ namespace COM3D2.MotionTimelineEditor
         {
             var drawRect = GetDrawRect(width, height);
 
+            InvokeActionOnDragging(drawRect, info, value, onAction);
+
+            GUI.Button(drawRect, text, gsButton);
+            NextElement(drawRect);
+        }
+
+        public void InvokeActionOnDragging(
+            float width,
+            float height,
+            DraggableInfo info,
+            Vector2 value,
+            Action<Vector2, Vector2> onAction)
+        {
+            var drawRect = GetDrawRect(width, height);
+            InvokeActionOnDragging(drawRect, info, value, onAction);    
+        }
+
+        public void InvokeActionOnDragging(
+            Rect drawRect,
+            DraggableInfo info,
+            Vector2 value,
+            Action<Vector2, Vector2> onAction)
+        {
             if (Event.current.type == EventType.MouseDown &&
                 drawRect.Contains(Event.current.mousePosition) && 
                 Event.current.button == 0)
@@ -801,9 +855,6 @@ namespace COM3D2.MotionTimelineEditor
                     info.lastMousePosition = Input.mousePosition;
                 }
             }
-
-            GUI.Button(drawRect, text, gsButton);
-            NextElement(drawRect);
         }
 
         public bool DrawToggle(
@@ -1943,6 +1994,7 @@ namespace COM3D2.MotionTimelineEditor
             var width = option.width == 0f ? 250f : option.width;
 
             var subViewRect = GetDrawRect(width, 20f);
+            width = subViewRect.width;
             
             BeginSubView(subViewRect, LayoutDirection.Horizontal);
             {

@@ -7,6 +7,7 @@ namespace COM3D2.MotionTimelineEditor
 {
     public static class MaidPartUtils
     {
+
         private static readonly Dictionary<MaidPartType, MPN> _toMpnMap =
                 Enum.GetValues(typeof(MaidPartType)).Cast<MaidPartType>().ToDictionary(
                     type => type,
@@ -24,12 +25,14 @@ namespace COM3D2.MotionTimelineEditor
 
         private static readonly Dictionary<string, MaidPartType> _maidPartTypeMap =
                 Enum.GetValues(typeof(MaidPartType)).Cast<MaidPartType>().ToDictionary(
-                    type => type.ToString().ToLower(),
-                    type => type);
+                    type => type.ToString(),
+                    type => type,
+                    StringComparer.OrdinalIgnoreCase);
 
-        public static MaidPartType GetMaidPartType(string name)
+
+        public static MaidPartType ToMaidPartType(this string name)
         {
-            return _maidPartTypeMap.GetOrDefault(name.ToLower());
+            return _maidPartTypeMap.GetOrDefault(name);
         }
 
         private static readonly Dictionary<MaidPartType, string> _maidPartNameMap =
