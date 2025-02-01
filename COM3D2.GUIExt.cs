@@ -2,7 +2,6 @@ using System;
 using System.Reflection;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityInjector.ConsoleUtil;
 
 
 /// Reference:  https://github.com/tsuneko/COM3D2.GUIExt
@@ -14,54 +13,6 @@ namespace COM3D2.GUIExtBase
     {
         private static SystemShortcut _SysShortcut = GameMain.Instance.SysShortcut;
         private static List<string> DefaultUIButtons = new List<string>() { "Config", "Ss", "SsUi", "ToTitle", "Info", "Help", "Dic", "Exit" };
-
-        public static void WriteLine(string prefix, ConsoleColor prefixColor, string message, ConsoleColor messageColor, bool error)
-        {
-            SafeConsole.ForegroundColor = prefixColor;
-            Console.Write(prefix);
-            if (error)
-            {
-                SafeConsole.ForegroundColor = ConsoleColor.Red;
-                Console.Write("[ERROR] ");
-            }
-            SafeConsole.ForegroundColor = messageColor;
-            Console.WriteLine(message);
-        }
-
-        public static void WriteLine(string message, ConsoleColor messageColor, bool error)
-        {
-            if (error)
-            {
-                SafeConsole.ForegroundColor = ConsoleColor.Red;
-                Console.Write("[ERROR] ");
-            }
-            SafeConsole.ForegroundColor = messageColor;
-            Console.WriteLine(message);
-        }
-
-        public static void Write(string prefix, ConsoleColor prefixColor, string message, ConsoleColor messageColor, bool error)
-        {
-            SafeConsole.ForegroundColor = prefixColor;
-            Console.Write(prefix);
-            if (error)
-            {
-                SafeConsole.ForegroundColor = ConsoleColor.Red;
-                Console.Write("[ERROR] ");
-            }
-            SafeConsole.ForegroundColor = messageColor;
-            Console.Write(message);
-        }
-
-        public static void Write(string message, ConsoleColor messageColor, bool error)
-        {
-            if (error)
-            {
-                SafeConsole.ForegroundColor = ConsoleColor.Red;
-                Console.Write("[ERROR] ");
-            }
-            SafeConsole.ForegroundColor = messageColor;
-            Console.Write(message);
-        }
 
         public static GameObject Add(string name, string tooltip, Action<GameObject> action)
         {
