@@ -1581,6 +1581,43 @@ namespace COM3D2.MotionTimelineEditor
             if (!GUI.enabled) EndColor();
         }
 
+        private static GUIContent _tempContent = null;
+
+        private static Vector2 CalcSize(GUIStyle style, string text)
+        {
+            if (_tempContent == null)
+            {
+                _tempContent = new GUIContent();
+            }
+
+            _tempContent.text = text;
+            return style.CalcSize(_tempContent);
+        }
+
+        private static float CalcHeight(GUIStyle style, string text, float width)
+        {
+            if (_tempContent == null)
+            {
+                _tempContent = new GUIContent();
+            }
+
+            _tempContent.text = text;
+            return style.CalcHeight(_tempContent, width);
+        }
+
+        private static Dictionary<string, Vector2> _tagSizeCache = new Dictionary<string, Vector2>();
+
+        private static Vector2 CalcTagSize(string text)
+        {
+            Vector2 size;
+            if (!_tagSizeCache.TryGetValue(text, out size))
+            {
+                size = CalcSize(gsTagLabel, text);
+                _tagSizeCache[text] = size;
+            }
+            return size;
+        }
+
         public bool DrawTile(
             ITileViewContent content,
             float width,
@@ -1625,14 +1662,14 @@ namespace COM3D2.MotionTimelineEditor
 
             if (!string.IsNullOrEmpty(content.name))
             {
-                float labelHeight = gsTileLabel.CalcHeight(new GUIContent(content.name), drawRect.width);
+                float labelHeight = CalcHeight(gsTileLabel, content.name, drawRect.width);
                 var labelRect = new Rect(drawRect.x, drawRect.y + drawRect.height - labelHeight, drawRect.width, labelHeight);
                 GUI.Label(labelRect, content.name, gsTileLabel);
             }
 
             if (!string.IsNullOrEmpty(content.tag))
             {
-                var tagSize = gsTagLabel.CalcSize(new GUIContent(content.tag));
+                var tagSize = CalcTagSize(content.tag);
                 var tagRect = new Rect(drawRect.x + drawRect.width - tagSize.x, drawRect.y, tagSize.x, tagSize.y);
 
                 var savedColor = GUI.color;
