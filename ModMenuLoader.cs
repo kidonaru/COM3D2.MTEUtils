@@ -290,7 +290,6 @@ namespace COM3D2.MotionTimelineEditor
                                 if (stringList.Length == 6)
                                 {
                                     menu.partsColorId = stringList[5].ToPartsColorId();
-                                    MTEUtils.Log("menuFileName: {0} partsColorId={1} => {2}", menuFileName, stringList[5], menu.partsColorId);
                                 }
                             }
                         }
