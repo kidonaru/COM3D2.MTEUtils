@@ -21,6 +21,16 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
+        public Quaternion rotation
+        {
+            get => _rotation;
+            set
+            {
+                _rotation = value;
+                _eulerAngles = value.eulerAngles;
+            }
+        }
+
         public TransformCache()
         {
         }

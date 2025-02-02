@@ -287,5 +287,23 @@ namespace COM3D2.MotionTimelineEditor
         {
             return _presetTypeName.GetOrDefault(presetType, "");
         }
+
+        public static Vector3 GetNormalizedEulerAngles(Vector3 angles)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                int value = (int) angles[i];
+                if (value > 180)
+                {
+                    angles[i] -= (value + 180) / 360 * 360;
+                }
+                else if (value < -180)
+                {
+                    angles[i] -= (value - 180) / 360 * 360;
+                }
+            }
+
+            return angles;
+        }
     }
 }

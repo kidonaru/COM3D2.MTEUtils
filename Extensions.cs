@@ -379,6 +379,44 @@ namespace COM3D2.MotionTimelineEditor
             baseFinger.value_fist = source.value_fist;
         }
 
+        private static FieldInfo _m_bonesField = null;
+
+        public static Transform[] GetBones(this TMorph morph)
+        {
+            if (_m_bonesField == null)
+            {
+                _m_bonesField = typeof(TMorph).GetField("m_bones",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+            }
+
+            return (Transform[]) _m_bonesField.GetValue(morph);
+        }
+
+        public static Transform GetBone(this TMorph morph, int index)
+        {
+            var bones = morph.GetBones();
+            return bones.GetOrDefault(index);
+        }
+
+        private static FieldInfo _m_bwsField = null;
+
+        public static BoneWeight[] GetBoneWeights(this TMorph morph)
+        {
+            if (_m_bwsField == null)
+            {
+                _m_bwsField = typeof(TMorph).GetField("m_bws",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+            }
+
+            return (BoneWeight[]) _m_bwsField.GetValue(morph);
+        }
+
+        public static BoneWeight GetBoneWeight(this TMorph morph, int index)
+        {
+            var bws = morph.GetBoneWeights();
+            return bws.GetOrDefault(index, new BoneWeight());
+        }
+
         public static ColorPaletteManager.ColorData.CommonItem GetItem(
             this ref ColorPaletteManager.ColorData self,
             ColorPaletteManager.Category category)
@@ -615,6 +653,25 @@ namespace COM3D2.MotionTimelineEditor
                 return list[index];
             }
             return null;
+        }
+
+        public static T GetOrDefault<T>(this T[] array, int index)
+            where T : class
+        {
+            if (index >= 0 && index < array.Length)
+            {
+                return array[index];
+            }
+            return null;
+        }
+
+        public static T GetOrDefault<T>(this T[] array, int index, T defaultValue)
+        {
+            if (index >= 0 && index < array.Length)
+            {
+                return array[index];
+            }
+            return defaultValue;
         }
     }
 }

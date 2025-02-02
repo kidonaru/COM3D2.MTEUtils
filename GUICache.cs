@@ -6,6 +6,7 @@ namespace COM3D2.MotionTimelineEditor
     {
         Float = 0,
         Int,
+        F3,
     }
 
     public class FloatFieldCache
@@ -33,7 +34,23 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
-        public string format => fieldType == FloatFieldType.Int ? "F0" : "F2";
+        public string format
+        {
+            get
+            {
+                switch (fieldType)
+                {
+                    case FloatFieldType.Float:
+                        return "F2";
+                    case FloatFieldType.Int:
+                        return "F0";
+                    case FloatFieldType.F3:
+                        return "F3";
+                    default:
+                        return "F2";
+                }
+            }
+        }
 
         private float _value = float.NaN;
         public float value => _value;
