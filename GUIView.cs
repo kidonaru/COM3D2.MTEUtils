@@ -32,6 +32,7 @@ namespace COM3D2.MotionTimelineEditor
         string name { get; }
         string tag { get; }
         Color tagColor { get; }
+        float nameHeight { get; set; }
         Texture2D thum { get; }
         bool isDir { get; }
         bool isSelected { get; }
@@ -57,6 +58,7 @@ namespace COM3D2.MotionTimelineEditor
         public virtual string setumei { get; set; }
         public virtual string tag { get; set; }
         public virtual Color tagColor { get; set; }
+        public virtual float nameHeight { get; set; } = -1f;
 
         protected Texture2D _thum;
         public virtual Texture2D thum
@@ -1662,8 +1664,11 @@ namespace COM3D2.MotionTimelineEditor
 
             if (!string.IsNullOrEmpty(content.name))
             {
-                float labelHeight = CalcHeight(gsTileLabel, content.name, drawRect.width);
-                var labelRect = new Rect(drawRect.x, drawRect.y + drawRect.height - labelHeight, drawRect.width, labelHeight);
+                if (content.nameHeight < 0f)
+                {
+                    content.nameHeight = CalcHeight(gsTileLabel, content.name, drawRect.width);
+                }
+                var labelRect = new Rect(drawRect.x, drawRect.y + drawRect.height - content.nameHeight, drawRect.width, content.nameHeight);
                 GUI.Label(labelRect, content.name, gsTileLabel);
             }
 
