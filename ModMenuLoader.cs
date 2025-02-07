@@ -176,6 +176,11 @@ namespace COM3D2.MotionTimelineEditor
 
             try
             {
+                if (!menuFileName.EndsWith(".menu", StringComparison.OrdinalIgnoreCase))
+                {
+                    menuFileName += ".menu";
+                }
+
                 byte[] buffer = BinaryLoader.ReadAFileBase(menuFileName, ref fileBuffer);
                 if (buffer == null)
                 {
