@@ -169,6 +169,8 @@ namespace COM3D2.MotionTimelineEditor
             bool isOfficial,
             ref byte[] fileBuffer)
         {
+            MTEUtils.LogDebug("LoadDirect: {0}", menuFileName);
+
             if (menuFileName.IndexOf("mod_") == 0)
             {
                 return LoadModDirect(menuFileName, menuFilePath, ref fileBuffer);
