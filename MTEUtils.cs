@@ -248,7 +248,7 @@ namespace COM3D2.MotionTimelineEditor
             for (int i = 0; i < maidCount; i++)
             {
                 var maid = characterMgr.GetMaid(i);
-                if (maid.IsReady())
+                if (maid != null && maid.Visible && maid.IsReady())
                 {
                     result.Add(maid);
                 }
@@ -258,7 +258,7 @@ namespace COM3D2.MotionTimelineEditor
             for (int j = 0; j < stockMaidCount; j++)
             {
                 var maid = characterMgr.GetStockMaid(j);
-                if (maid.IsReady() && !result.Contains(maid))
+                if (maid != null && maid.Visible && maid.IsReady() && !result.Contains(maid))
                 {
                     result.Add(maid);
                 }
