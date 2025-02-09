@@ -144,6 +144,21 @@ namespace COM3D2.MotionTimelineEditor
 
         public static MenuInfo Load(string menuFileName)
         {
+            if (menuFileName.IndexOf("mod_") == 0)
+            {
+                if (!menuFileName.EndsWith(".mod", StringComparison.OrdinalIgnoreCase))
+                {
+                    menuFileName += ".mod";
+                }
+            }
+            else
+            {
+                if (!menuFileName.EndsWith(".menu", StringComparison.OrdinalIgnoreCase))
+                {
+                    menuFileName += ".menu";
+                }
+            }
+
             MenuInfo menu;
             if (menuCache.TryGetValue(menuFileName, out menu))
             {
@@ -178,11 +193,6 @@ namespace COM3D2.MotionTimelineEditor
 
             try
             {
-                if (!menuFileName.EndsWith(".menu", StringComparison.OrdinalIgnoreCase))
-                {
-                    menuFileName += ".menu";
-                }
-
                 byte[] buffer = BinaryLoader.ReadAFileBase(menuFileName, ref fileBuffer);
                 if (buffer == null)
                 {
