@@ -9,7 +9,7 @@ namespace COM3D2.MotionTimelineEditor
 {
     public class MenuInfo
     {
-        public static int CacheVersion = 4;
+        public static int CacheVersion = 5;
 
         public string fileName;
         public string path;
@@ -443,7 +443,6 @@ namespace COM3D2.MotionTimelineEditor
 
             // 非表示メニュー
             if (!MaidPartUtils.IsEditableType(menu.maidPartType) ||
-                !string.IsNullOrEmpty(menu.variationBaseFileName) ||
                 menu.fileName.Contains("_zurashi") ||
                 menu.fileName.Contains("_mekure") ||
                 menu.fileName.Contains("_porori") ||

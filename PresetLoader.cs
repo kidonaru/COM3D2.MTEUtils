@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Xml;
 using UnityEngine;
 
 namespace COM3D2.MotionTimelineEditor
@@ -9,6 +10,7 @@ namespace COM3D2.MotionTimelineEditor
     {
         public CharacterMgr.Preset preset;
         public byte[] textureBytes;
+        public long lastWriteAt;
     }
 
     public static class PresetLoader
@@ -28,6 +30,8 @@ namespace COM3D2.MotionTimelineEditor
                 return null;
             }
 
+            var lastWriteAt = File.GetLastWriteTime(f_strFileName).Ticks;
+
             byte[] buffer = m_tempBuffer;
             if (buffer == null || buffer.Length < fileStream.Length)
             {
@@ -41,13 +45,13 @@ namespace COM3D2.MotionTimelineEditor
             fileStream = null;
 
             BinaryReader binaryReader = new BinaryReader(new MemoryStream(buffer));
-            PresetData result = Load(binaryReader, Path.GetFileName(f_strFileName));
+            PresetData result = Load(binaryReader, Path.GetFileName(f_strFileName), lastWriteAt);
             binaryReader.Close();
             binaryReader = null;
             return result;
         }
 
-        private static PresetData Load(BinaryReader brRead, string f_strFileName)
+        private static PresetData Load(BinaryReader brRead, string f_strFileName, long lastWriteAt)
         {
             var preset = new CharacterMgr.Preset();
             preset.strFileName = f_strFileName;
@@ -85,6 +89,7 @@ namespace COM3D2.MotionTimelineEditor
             {
                 preset = preset,
                 textureBytes = textureBytes,
+                lastWriteAt = lastWriteAt,
             };
         }
     }

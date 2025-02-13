@@ -7,6 +7,7 @@ namespace COM3D2.MotionTimelineEditor
     public abstract class GUIComboBoxBase
     {
         public string defaultName;
+        public Texture2D defaultTexture;
         public int currentIndex = 0;
         public Vector2 buttonPos;
         public float labelWidth = 100;
@@ -24,6 +25,8 @@ namespace COM3D2.MotionTimelineEditor
             DrawButton("", view);
         }
 
+        public abstract void DrawTextureButton(GUIView view);
+
         public abstract void DrawContent(GUIView view);
     }
 
@@ -31,6 +34,7 @@ namespace COM3D2.MotionTimelineEditor
     {
         public List<T> items = new List<T>();
         public Func<T, int, string> getName;
+        public Func<T, int, Texture2D> getTexture;
         public Func<T, int, bool> getEnabled;
         public Action<T, int> onSelected;
 
@@ -137,6 +141,73 @@ namespace COM3D2.MotionTimelineEditor
                 }
 
                 if (_buttonSubView.DrawButton(name, buttonSize.x, buttonSize.y))
+                {
+                    view.SetFocusComboBox(this);
+                }
+
+                if (showArrow)
+                {
+                    if (_buttonSubView.DrawButton(">", 20, 20))
+                    {
+                        this.currentIndex = this.nextIndex;
+                        if (this.onSelected != null)
+                        {
+                            this.onSelected(this.items[this.currentIndex], this.currentIndex);
+                        }
+                    }
+                }
+            }
+            _buttonSubView.EndLayout();
+
+            view.NextElement(subViewRect);
+        }
+
+        public override void DrawTextureButton(GUIView view)
+        {
+            var texture = this.defaultTexture;
+            if (texture == null)
+            {
+                if (currentIndex >= 0 && currentIndex < this.items.Count)
+                {
+                    texture = this.getTexture(this.items[currentIndex], currentIndex);
+                }
+            }
+
+            var subViewWidth = buttonSize.x;
+            if (showArrow)
+            {
+                subViewWidth += 40;
+            }
+
+            var subViewRect = view.GetDrawRect(subViewWidth, buttonSize.y);
+            _buttonSubView.parent = view;
+            _buttonSubView.Init(subViewRect);
+
+            _buttonSubView.BeginHorizontal();
+            {
+                if (showArrow)
+                {
+                    if (_buttonSubView.DrawButton("<", 20, 20))
+                    {
+                        this.currentIndex = this.prevIndex;
+                        if (this.onSelected != null)
+                        {
+                            this.onSelected(this.items[this.currentIndex], this.currentIndex);
+                        }
+                    }
+                }
+
+                var buttonDrawRect = _buttonSubView.GetDrawRect(buttonSize.x, buttonSize.y);
+                buttonPos = buttonDrawRect.position;
+
+                var topView = view.topView;
+                if (topView.isScrollViewEnabled)
+                {
+                    buttonPos.x += topView.scrollViewRect.x - topView.scrollPosition.x;
+                    buttonPos.y += topView.scrollViewRect.y - topView.scrollPosition.y;
+                }
+
+                if (_buttonSubView.DrawTextureButton(texture, buttonSize.x, buttonSize.y))
                 {
                     view.SetFocusComboBox(this);
                 }
