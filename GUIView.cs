@@ -1348,6 +1348,11 @@ namespace COM3D2.MotionTimelineEditor
             DrawTexture(texWhite, -1, 1, color);
         }
 
+        public void DrawHorizontalLine()
+        {
+            DrawHorizontalLine(Color.gray);
+        }
+
         public void DrawRect(
             float width,
             float height,

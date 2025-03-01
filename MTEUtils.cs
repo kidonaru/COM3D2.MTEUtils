@@ -2,9 +2,11 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Threading;
 using UnityEngine;
 
@@ -147,7 +149,10 @@ namespace COM3D2.MotionTimelineEditor
                 message, SystemDialog.TYPE.OK, null, null);
         }
 
-        public static void ShowConfirmDialog(string message, SystemDialog.OnClick onYes, SystemDialog.OnClick onNo)
+        public static void ShowConfirmDialog(
+            string message,
+            SystemDialog.OnClick onYes,
+            SystemDialog.OnClick onNo = null)
         {
             GameMain.Instance.SysDlg.Show(
                 message, SystemDialog.TYPE.YES_NO, onYes, onNo);
@@ -304,6 +309,43 @@ namespace COM3D2.MotionTimelineEditor
             }
 
             return angles;
+        }
+
+        public static string FormatWithNamedParameters(
+            string format,
+            IDictionary<string, object> parameters)
+        {
+            foreach (var kvp in parameters)
+            {
+                string placeholder = "{" + kvp.Key + "}";
+                string formattedValue = kvp.Value.ToString();
+                
+                // 書式指定子がある場合（例：{frame:D6}）
+                string formatSpecifierPattern = "{" + kvp.Key + ":([^}]+)}";
+                var matches = Regex.Matches(format, formatSpecifierPattern);
+                
+                foreach (Match match in matches)
+                {
+                    if (match.Groups.Count > 1)
+                    {
+                        string formatSpecifier = match.Groups[1].Value;
+                        string fullPlaceholder = "{" + kvp.Key + ":" + formatSpecifier + "}";
+                        
+                        // 数値の場合は書式指定子を適用
+                        if (kvp.Value is IFormattable formattable)
+                        {
+                            formattedValue = formattable.ToString(formatSpecifier, CultureInfo.InvariantCulture);
+                        }
+                        
+                        format = format.Replace(fullPlaceholder, formattedValue);
+                    }
+                }
+                
+                // 書式指定子のない単純な置換
+                format = format.Replace(placeholder, formattedValue);
+            }
+            
+            return format;
         }
     }
 }
