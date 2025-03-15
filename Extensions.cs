@@ -673,5 +673,53 @@ namespace COM3D2.MotionTimelineEditor
             }
             return defaultValue;
         }
+
+        private static FieldInfo _mVelocityField = null;
+
+        public static void SetVelocity(this UltimateOrbitCamera self, Vector3 velocity)
+        {
+            if (_mVelocityField == null)
+            {
+                _mVelocityField = typeof(UltimateOrbitCamera).GetField("mVelocity", BindingFlags.NonPublic | BindingFlags.Instance);
+            }
+
+            _mVelocityField.SetValue(self, velocity);
+        }
+
+        private static FieldInfo _cameraMoveField = null;
+
+        public static void SetCameraMove(this UltimateOrbitCamera self, bool cameraMove)
+        {
+            if (_cameraMoveField == null)
+            {
+                _cameraMoveField = typeof(UltimateOrbitCamera).GetField("cameraMove", BindingFlags.NonPublic | BindingFlags.Instance);
+            }
+
+            _cameraMoveField.SetValue(self, cameraMove);
+        }
+
+        public static void MoveTarget(this UltimateOrbitCamera camera, Vector3 newTargetWorldPos)
+        {
+            var cameraTransform = camera.transform;
+            var target = camera.target;
+
+            var currentCameraPos = cameraTransform.position;
+            var currentCameraRot = cameraTransform.rotation;
+            var cameraForward = cameraTransform.forward;
+
+            var distanceToNewTarget = Vector3.Dot(newTargetWorldPos - currentCameraPos, cameraForward);
+            var adjustedTargetPos = currentCameraPos + cameraForward * distanceToNewTarget;
+
+            target.position = adjustedTargetPos;
+            camera.SetVelocity(adjustedTargetPos);
+
+            float newDistance = distanceToNewTarget;
+            camera.SetDistance(newDistance);
+
+            cameraTransform.position = currentCameraPos;
+            cameraTransform.rotation = currentCameraRot;
+
+            camera.SetCameraMove(false);
+        }
     }
 }
