@@ -7,6 +7,7 @@ namespace COM3D2.MotionTimelineEditor
         Float = 0,
         Int,
         F3,
+        F4,
     }
 
     public class FloatFieldCache
@@ -46,6 +47,8 @@ namespace COM3D2.MotionTimelineEditor
                         return "F0";
                     case FloatFieldType.F3:
                         return "F3";
+                    case FloatFieldType.F4:
+                        return "F4";
                     default:
                         return "F2";
                 }
