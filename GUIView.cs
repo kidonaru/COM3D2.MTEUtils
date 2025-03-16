@@ -377,6 +377,9 @@ namespace COM3D2.MotionTimelineEditor
         private List<TransformCache> _transformCaches = new List<TransformCache>();
         private int _transformCacheIndex = 0;
 
+        private List<ColorFieldCache> _colorFieldCaches = new List<ColorFieldCache>();
+        private int _colorFieldCacheIndex = 0;
+
         private static GUIStyle _gsWin = null;
         public static GUIStyle gsWin
         {
@@ -546,6 +549,7 @@ namespace COM3D2.MotionTimelineEditor
             this._fieldCacheIndex = 0;
             this._intFieldCacheIndex = 0;
             this._transformCacheIndex = 0;
+            this._colorFieldCacheIndex = 0;
 
             EndEnabled();
         }
@@ -2310,7 +2314,7 @@ namespace COM3D2.MotionTimelineEditor
 
         public FloatFieldCache GetFieldCache(
             string label,
-            FloatFieldType fieldType)
+            FloatFieldType fieldType = FloatFieldType.Float)
         {
             if (parent != null)
             {
@@ -2328,11 +2332,6 @@ namespace COM3D2.MotionTimelineEditor
             fieldCache.label = label;
             fieldCache.fieldType = fieldType;
             return fieldCache;
-        }
-
-        public FloatFieldCache GetFieldCache(string label)
-        {
-            return GetFieldCache(label, FloatFieldType.Float);
         }
 
         public FloatFieldCache GetFieldCache(string label, float value)
@@ -2392,6 +2391,28 @@ namespace COM3D2.MotionTimelineEditor
                 _transformCacheIndex++;
                 return cache;
             }
+        }
+
+        public ColorFieldCache GetColorFieldCache(
+            string label,
+            bool hasAlpha)
+        {
+            if (parent != null)
+            {
+                return parent.GetColorFieldCache(label, hasAlpha);
+            }
+
+            ColorFieldCache fieldCache;
+            if (_colorFieldCacheIndex >= _colorFieldCaches.Count)
+            {
+                fieldCache = new ColorFieldCache();
+                _colorFieldCaches.Add(fieldCache);
+            }
+
+            fieldCache = _colorFieldCaches[_colorFieldCacheIndex++];
+            fieldCache.label = label;
+            fieldCache.hasAlpha = hasAlpha;
+            return fieldCache;
         }
     }
 }
