@@ -7,6 +7,22 @@ namespace COM3D2.MotionTimelineEditor
 {
     public static class MaidPartUtils
     {
+        public static readonly List<MaidPartType> allMaidPartTypes
+            = MTEUtils.GetEnumValues<MaidPartType>().ToList();
+
+        private static List<MaidPartType> _equippableMaidPartTypes = null;
+        public static List<MaidPartType> equippableMaidPartTypes
+        {
+            get
+            {
+                if (_equippableMaidPartTypes == null)
+                {
+                    _equippableMaidPartTypes = allMaidPartTypes.Where(IsEquippableType).ToList();
+                }
+
+                return _equippableMaidPartTypes;
+            }
+        }
 
         private static readonly Dictionary<MaidPartType, MPN> _toMpnMap =
                 Enum.GetValues(typeof(MaidPartType)).Cast<MaidPartType>().ToDictionary(
@@ -45,7 +61,7 @@ namespace COM3D2.MotionTimelineEditor
             return _maidPartNameMap.GetOrDefault(type);
         }
 
-        private readonly static Dictionary<MaidPartType, string> _maidPartJpNameMap = new Dictionary<MaidPartType, string>
+        public readonly static Dictionary<MaidPartType, string> maidPartJpNameMap = new Dictionary<MaidPartType, string>
         {
             // 顔
             { MaidPartType.head, "顔" },
@@ -118,7 +134,7 @@ namespace COM3D2.MotionTimelineEditor
 
         public static string GetMaidPartJpName(MaidPartType type)
         {
-            var name = _maidPartJpNameMap.GetOrDefault(type);
+            var name = maidPartJpNameMap.GetOrDefault(type);
             return string.IsNullOrEmpty(name) ? type.ToString() : name;
         }
 
@@ -230,7 +246,7 @@ namespace COM3D2.MotionTimelineEditor
 
         public static IEnumerable<MaidPartType> GetAllMaidPartType()
         {
-            return _maidPartJpNameMap.Keys;
+            return maidPartJpNameMap.Keys;
         }
 
         /// <summary>

@@ -926,8 +926,8 @@ namespace COM3D2.MotionTimelineEditor
             string text,
             float width,
             float height,
-            Action<string> onChanged,
-            bool hasNewLine)
+            Action<string> onChanged = null,
+            bool hasNewLine = false)
         {
             if (!string.IsNullOrEmpty(label))
             {
@@ -968,22 +968,11 @@ namespace COM3D2.MotionTimelineEditor
             return updated;
         }
 
-        public bool DrawTextField(
-            string label,
-            float labelWidth,
-            string text,
-            float width,
-            float height,
-            Action<string> onChanged)
-        {
-            return DrawTextField(label, labelWidth, text, width, height, onChanged, false);
-        }
-
         public void DrawTextField(
             string text,
             float width,
             float height,
-            Action<string> onChanged)
+            Action<string> onChanged = null)
         {
             DrawTextField(null, 0f, text, width, height, onChanged);
         }
@@ -997,30 +986,6 @@ namespace COM3D2.MotionTimelineEditor
             public Action<string> onChanged;
             public int maxLines;
             public bool hiddenButton;
-        }
-
-        public GUIView subView;
-
-        public GUIView BeginSubView(Rect subViewRect, LayoutDirection direction)
-        {
-            if (subView == null)
-            {
-                subView = new GUIView();
-            }
-
-            subView.parent = this;
-            subView.Init(subViewRect);
-            subView.margin = 0;
-            subView.padding = Vector2.zero;
-            subView.BeginLayout(direction);
-
-            return subView;
-        }
-
-        public void EndSubView()
-        {
-            subView.EndLayout();
-            NextElement(subView._viewRect);
         }
 
         public bool DrawTextField(TextFieldOption option)
@@ -1064,6 +1029,30 @@ namespace COM3D2.MotionTimelineEditor
             EndSubView();
 
             return updated;
+        }
+
+        public GUIView subView;
+
+        public GUIView BeginSubView(Rect subViewRect, LayoutDirection direction)
+        {
+            if (subView == null)
+            {
+                subView = new GUIView();
+            }
+
+            subView.parent = this;
+            subView.Init(subViewRect);
+            subView.margin = 0;
+            subView.padding = Vector2.zero;
+            subView.BeginLayout(direction);
+
+            return subView;
+        }
+
+        public void EndSubView()
+        {
+            subView.EndLayout();
+            NextElement(subView._viewRect);
         }
 
         public struct FloatFieldOption
