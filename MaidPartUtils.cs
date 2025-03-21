@@ -5,6 +5,17 @@ using UnityEngine;
 
 namespace COM3D2.MotionTimelineEditor
 {
+    public enum MaidPartCategory
+    {
+        None,
+        Face,
+        Hair,
+        Body,
+        Wear,
+        Accessory,
+        Set,
+    }
+
     public static class MaidPartUtils
     {
         public static readonly List<MaidPartType> allMaidPartTypes
@@ -51,14 +62,14 @@ namespace COM3D2.MotionTimelineEditor
             return _maidPartTypeMap.GetOrDefault(name);
         }
 
-        private static readonly Dictionary<MaidPartType, string> _maidPartNameMap =
+        public static readonly Dictionary<MaidPartType, string> maidPartNameMap =
                 Enum.GetValues(typeof(MaidPartType)).Cast<MaidPartType>().ToDictionary(
                     type => type,
                     type => type.ToString());
 
-        public static string GetMaidPartName(MaidPartType type)
+        public static string ToName(this MaidPartType type)
         {
-            return _maidPartNameMap.GetOrDefault(type);
+            return maidPartNameMap.GetOrDefault(type);
         }
 
         public readonly static Dictionary<MaidPartType, string> maidPartJpNameMap = new Dictionary<MaidPartType, string>
@@ -132,24 +143,40 @@ namespace COM3D2.MotionTimelineEditor
             { MaidPartType.set_underwear, "下着" },
         };
 
-        public static string GetMaidPartJpName(MaidPartType type)
+        public static string ToJpName(this MaidPartType type)
         {
             var name = maidPartJpNameMap.GetOrDefault(type);
             return string.IsNullOrEmpty(name) ? type.ToString() : name;
         }
 
-        public enum MaidPartCategory
+        public readonly static List<MaidPartCategory> maidPartCategories
+            = MTEUtils.GetEnumValues<MaidPartCategory>().ToList();
+
+        public readonly static List<string> maidPartCategoryNames
+            = maidPartCategories.Select(c => c.ToString()).ToList();
+
+        public static string ToName(this MaidPartCategory category)
         {
-            None,
-            Face,
-            Hair,
-            Body,
-            Wear,
-            Accessory,
-            Set,
+            return maidPartCategoryNames.GetOrDefault((int)category, "None");
         }
 
-        private readonly static Dictionary<MaidPartType, MaidPartCategory> _maidPartCategoryMap = new Dictionary<MaidPartType, MaidPartCategory>
+        public readonly static Dictionary<MaidPartCategory, string> maidPartCategoryJpNameMap = new Dictionary<MaidPartCategory, string>
+        {
+            { MaidPartCategory.None, "なし" },
+            { MaidPartCategory.Face, "顔" },
+            { MaidPartCategory.Hair, "髪" },
+            { MaidPartCategory.Body, "体" },
+            { MaidPartCategory.Wear, "服" },
+            { MaidPartCategory.Accessory, "アクセ" },
+            { MaidPartCategory.Set, "セット" },
+        };
+
+        public static string ToJpName(this MaidPartCategory category)
+        {
+            return maidPartCategoryJpNameMap.GetOrDefault(category, "なし");
+        }
+
+        public readonly static Dictionary<MaidPartType, MaidPartCategory> maidPartCategoryMap = new Dictionary<MaidPartType, MaidPartCategory>
         {
             // 顔
             { MaidPartType.head, MaidPartCategory.Face },
@@ -220,9 +247,9 @@ namespace COM3D2.MotionTimelineEditor
             { MaidPartType.set_underwear, MaidPartCategory.Set },
         };
 
-        public static MaidPartCategory GetMaidPartCategory(MaidPartType type)
+        public static MaidPartCategory ToCategory(this MaidPartType type)
         {
-            return _maidPartCategoryMap.GetOrDefault(type);
+            return maidPartCategoryMap.GetOrDefault(type);
         }
 
         private readonly static Dictionary<MaidPartCategory, Color> _maidPartCategoryColorMap = new Dictionary<MaidPartCategory, Color>
@@ -238,7 +265,7 @@ namespace COM3D2.MotionTimelineEditor
 
         public static Color GetMaidPartColor(MaidPartType type, float alpha)
         {
-            var category = GetMaidPartCategory(type);
+            var category = ToCategory(type);
             var color = _maidPartCategoryColorMap.GetOrDefault(category);
             color.a = alpha;
             return color;
@@ -257,7 +284,7 @@ namespace COM3D2.MotionTimelineEditor
         /// <returns></returns>
         public static bool IsEditableType(MaidPartType type)
         {
-            return _maidPartCategoryMap.ContainsKey(type);
+            return maidPartCategoryMap.ContainsKey(type);
         }
 
         /// <summary>
@@ -268,7 +295,7 @@ namespace COM3D2.MotionTimelineEditor
         /// <returns></returns>
         public static bool IsEquippableType(MaidPartType type)
         {
-            var category = GetMaidPartCategory(type);
+            var category = ToCategory(type);
             return category != MaidPartCategory.None && category != MaidPartCategory.Set;
         }
 
