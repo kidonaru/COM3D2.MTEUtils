@@ -721,5 +721,17 @@ namespace COM3D2.MotionTimelineEditor
 
             camera.SetCameraMove(false);
         }
+
+        public static AnimationState GetAnimationState(this Maid maid)
+        {
+            var animation = maid.GetAnimation();
+            if (animation == null)
+            {
+                return null;
+            }
+
+            var anmName = maid.body0.LastAnimeFN;
+            return animation[anmName.ToLower()];
+        }
     }
 }

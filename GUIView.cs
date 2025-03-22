@@ -2021,6 +2021,7 @@ namespace COM3D2.MotionTimelineEditor
             public float step;
             public float defaultValue;
             public float value;
+            public bool hiddenResetButton;
             public Action<float> onChanged;
         }
 
@@ -2039,6 +2040,11 @@ namespace COM3D2.MotionTimelineEditor
             BeginSubView(subViewRect, LayoutDirection.Horizontal);
             {
                 var sliderWidth = width - 80f;
+
+                if (option.hiddenResetButton)
+                {
+                    sliderWidth += 25f;
+                }
 
                 var label = fieldCache.label;
                 if (!string.IsNullOrEmpty(label))
@@ -2075,11 +2081,14 @@ namespace COM3D2.MotionTimelineEditor
 
                 newValue = subView.DrawSlider(newValue, option.min, option.max, sliderWidth, 20);
 
-                subView.AddSpace(5);
-
-                if (subView.DrawButton("R", 20, 20))
+                if (!option.hiddenResetButton)
                 {
-                    newValue = option.defaultValue;
+                    subView.AddSpace(5);
+
+                    if (subView.DrawButton("R", 20, 20))
+                    {
+                        newValue = option.defaultValue;
+                    }
                 }
             }
             EndSubView();
