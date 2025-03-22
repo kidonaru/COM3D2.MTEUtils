@@ -796,24 +796,27 @@ namespace COM3D2.MotionTimelineEditor
             return result;
         }
         
-        public class DraggableInfo
+        public class DragInfo
         {
             public bool isDragging;
-            public Vector3 lastMousePosition;
-            public Vector2 value;
+            public Vector3 lastMousePos;
+            public Vector2 startPos;
+            public Vector2 pos;
         }
 
         public void DrawDraggableButton(
             string text,
             float width,
             float height,
-            DraggableInfo info,
-            Vector2 value,
-            Action<Vector2, Vector2> onAction)
+            DragInfo info,
+            Vector2 pos,
+            Action<Vector2> onStart,
+            Action<Vector2> onDragging)
         {
             var drawRect = GetDrawRect(width, height);
 
-            InvokeActionOnDragging(drawRect, info, value, onAction);
+            InvokeActionOnDragStart(drawRect, info, pos, onStart);
+            InvokeActionOnDragging(info, onDragging);
 
             GUI.Button(drawRect, text, gsButton);
             NextElement(drawRect);
@@ -822,29 +825,38 @@ namespace COM3D2.MotionTimelineEditor
         public void InvokeActionOnDragging(
             float width,
             float height,
-            DraggableInfo info,
-            Vector2 value,
-            Action<Vector2, Vector2> onAction)
+            DragInfo info,
+            Vector2 pos,
+            Action<Vector2> onStart,
+            Action<Vector2> onDragging)
         {
             var drawRect = GetDrawRect(width, height);
-            InvokeActionOnDragging(drawRect, info, value, onAction);    
+            InvokeActionOnDragStart(drawRect, info, pos, onStart);
+            InvokeActionOnDragging(info, onDragging);    
         }
 
-        public void InvokeActionOnDragging(
+        public void InvokeActionOnDragStart(
             Rect drawRect,
-            DraggableInfo info,
-            Vector2 value,
-            Action<Vector2, Vector2> onAction)
+            DragInfo info,
+            Vector2 pos,
+            Action<Vector2> onStart)
         {
             if (Event.current.type == EventType.MouseDown &&
                 drawRect.Contains(Event.current.mousePosition) && 
                 Event.current.button == 0)
             {
                 info.isDragging = true;
-                info.lastMousePosition = Input.mousePosition;
-                info.value = value;
+                info.lastMousePos = Input.mousePosition;
+                info.startPos = pos;
+                info.pos = pos;
+                onStart?.Invoke(info.pos);
             }
+        }
 
+        public void InvokeActionOnDragging(
+            DragInfo info,
+            Action<Vector2> onDragging)
+        {
             if (info.isDragging && !Input.GetMouseButton(0))
             {
                 info.isDragging = false;
@@ -852,13 +864,13 @@ namespace COM3D2.MotionTimelineEditor
 
             if (info.isDragging)
             {
-                var diff = Input.mousePosition - info.lastMousePosition;
+                var diff = Input.mousePosition - info.lastMousePos;
                 diff.y = -diff.y;
                 if (diff.sqrMagnitude > 0)
                 {
-                    info.value += new Vector2(diff.x, diff.y);
-                    onAction?.Invoke(diff, info.value);
-                    info.lastMousePosition = Input.mousePosition;
+                    info.pos += new Vector2(diff.x, diff.y);
+                    onDragging?.Invoke(info.pos);
+                    info.lastMousePos = Input.mousePosition;
                 }
             }
         }
