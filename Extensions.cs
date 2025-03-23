@@ -733,5 +733,259 @@ namespace COM3D2.MotionTimelineEditor
             var anmName = maid.body0.LastAnimeFN;
             return animation[anmName.ToLower()];
         }
+
+        private static FieldInfo m_AnimCacheField = null;
+        public static Dictionary<string, byte> GetAnimCache(this TBody body)
+        {
+            if (m_AnimCacheField == null)
+            {
+                m_AnimCacheField = typeof(TBody).GetField("m_AnimCache", BindingFlags.NonPublic | BindingFlags.Instance);
+            }
+
+            return (Dictionary<string, byte>) m_AnimCacheField.GetValue(body);
+        }
+
+        private static FieldInfo anistField = null;
+        public static AnimationState GetAnist(this TBody body)
+        {
+            if (anistField == null)
+            {
+                anistField = typeof(TBody).GetField("anist", BindingFlags.NonPublic | BindingFlags.Instance);
+            }
+
+            return (AnimationState) anistField.GetValue(body);
+        }
+
+        public static void SetAnist(this TBody body, AnimationState anist)
+        {
+            if (anistField == null)
+            {
+                anistField = typeof(TBody).GetField("anist", BindingFlags.NonPublic | BindingFlags.Instance);
+            }
+
+            anistField.SetValue(body, anist);
+        }
+
+        public static string CrossFadeLayer(
+            this TBody body,
+            string filename,
+            AFileSystemBase fileSystem,
+            int layer,
+            bool additive = false,
+            bool loop = false,
+            bool boAddQue = false,
+            float fade = 0.5f,
+            float weight = 1f)
+        {
+            if (body.m_Bones == null)
+            {
+                NDebug.Assert("まだ読み込まれる前のBodyにモーションを指定しようとしました。" + body.gameObject.name, false);
+            }
+
+            var animeTag = filename.ToLower();
+            var prevAnimeFn = body.LastAnimeFN;
+            var animationState = body.LoadAnime(animeTag, fileSystem, filename, additive, loop);
+            if (animationState == null)
+            {
+                return string.Empty;
+            }
+
+            animationState.layer = layer;
+            if (layer != 0)
+            {
+                body.LastAnimeFN = prevAnimeFn;
+            }
+
+            var animation = body.m_Animation;
+            if (boAddQue)
+            {
+                if (weight != 1f)
+                {
+                    animation.PlayQueued(animeTag, QueueMode.CompleteOthers);
+                    animation[animeTag].weight = weight;
+                }
+                else
+                {
+                    animation.CrossFadeQueued(animeTag, fade, QueueMode.CompleteOthers);
+                }
+            }
+            else
+            {
+                if (animationState.layer == 0)
+                {
+                    body.SetAnist(animationState);
+                }
+                if (weight != 1f)
+                {
+                    animation.Play(animeTag);
+                    animation[animeTag].weight = weight;
+                }
+                else
+                {
+                    animation.CrossFade(animeTag, fade);
+                }
+            }
+
+            return animeTag;
+        }
+
+        public static string CrossFadeLayer(
+            this TBody body,
+            string tag,
+            byte[] byte_data,
+            int layer,
+            bool additive = false,
+            bool loop = false,
+            bool boAddQue = false,
+            float fade = 0.5f,
+            float weight = 1f)
+        {
+            if (body.m_Bones == null)
+            {
+                NDebug.Assert("まだ読み込まれる前のBodyにモーションを指定しようとしました。" + body.gameObject.name, false);
+            }
+
+            var prevAnimeFn = body.LastAnimeFN;
+            var animationState = body.LoadAnime(tag, byte_data, additive, loop);
+
+            animationState.layer = layer;
+            if (layer != 0)
+            {
+                body.LastAnimeFN = prevAnimeFn;
+            }
+
+            var animation = body.m_Animation;
+            if (boAddQue)
+            {
+                if (weight != 1f)
+                {
+                    animation.PlayQueued(tag, QueueMode.CompleteOthers);
+                    animation[tag].weight = weight;
+                }
+                else
+                {
+                    animation.CrossFadeQueued(tag, fade, QueueMode.CompleteOthers);
+                }
+            }
+            else
+            {
+                if (animationState.layer == 0)
+                {
+                    body.SetAnist(animationState);
+                }
+                if (weight != 1f)
+                {
+                    animation.Play(tag);
+                    animation[tag].weight = weight;
+                }
+                else
+                {
+                    animation.CrossFade(tag, fade);
+                }
+            }
+
+            return tag;
+        }
+
+        public static void StopAndDestroyAnimeLayer(this TBody body, int layerno)
+        {
+            if (body.m_Bones == null)
+            {
+                Debug.LogError("未だキャラがロードさていません。" + body.gameObject.name);
+            }
+            if (layerno < 2)
+            {
+                Debug.LogError("モーションレイヤーの停止は2以上を指定して下さい。");
+            }
+
+            var animation = body.m_Animation;
+            var statesToStop = new List<AnimationState>();
+
+            // foreachを使って対象のアニメーション状態を収集
+            foreach (AnimationState state in animation)
+            {
+                if (state.layer == layerno && animation.IsPlaying(state.name))
+                {
+                    statesToStop.Add(state);
+                }
+            }
+
+            var animCache = body.GetAnimCache();
+
+            // 収集したアニメーション状態を停止し、クリップを破棄
+            foreach (AnimationState state in statesToStop)
+            {
+                animation.Stop(state.name);
+                AnimationClip clip = animation.GetClip(state.name);
+                int num = state.name.IndexOf(" - Queued Clone");
+                if (num <= 0)
+                {
+                    animation.RemoveClip(state.name);
+                }
+                UnityEngine.Object.Destroy(clip);
+
+                if (animCache.ContainsKey(state.name))
+                {
+                    animCache.Remove(state.name);
+                }
+            }
+        }
+
+        public static void SeekTime(this Animation animation, AnimationState state, float time)
+        {
+            if (animation == null || state == null)
+            {
+                return;
+            }
+
+            bool isPlaying = state.enabled;
+            state.time = time;
+            state.enabled = true;
+            animation.Sample();
+            state.enabled = isPlaying;
+        }
+
+        public static float GetPlayingTime(this AnimationState state)
+        {
+            if (state == null || state.length <= 0f)
+            {
+                return 0f;
+            }
+
+            float value = state.time;
+            if (state.length < state.time)
+            {
+                if (state.wrapMode == WrapMode.ClampForever)
+                {
+                    value = state.length;
+                }
+                else
+                {
+                    value = state.time - state.length * (float)((int)(state.time / state.length));
+                }
+            }
+            return value;
+        }
+
+        public static void StopAndDestroy(this TBody body, string fileName)
+        {
+            var animeTag = fileName.ToLower();
+            var animation = body.m_Animation;
+            var animationState = animation[animeTag];
+            if (animationState == null)
+            {
+                return;
+            }
+
+            animation.Stop(animeTag);
+
+            AnimationClip clip = animation.GetClip(animationState.name);
+            int num = animationState.name.IndexOf(" - Queued Clone");
+            if (num <= 0)
+            {
+                animation.RemoveClip(animationState.name);
+            }
+            UnityEngine.Object.Destroy(clip);
+        }
     }
 }
