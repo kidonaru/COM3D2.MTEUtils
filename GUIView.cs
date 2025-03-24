@@ -2336,6 +2336,7 @@ namespace COM3D2.MotionTimelineEditor
             {
                 fieldCache = new FloatFieldCache();
                 _fieldCaches.Add(fieldCache);
+                MTEUtils.LogDebug("Add FieldCache: " + label);
             }
 
             fieldCache = _fieldCaches[_fieldCacheIndex++];
@@ -2363,6 +2364,7 @@ namespace COM3D2.MotionTimelineEditor
             {
                 fieldCache = new IntFieldCache();
                 _intFieldCaches.Add(fieldCache);
+                MTEUtils.LogDebug("Add IntFieldCache: " + label);
             }
 
             fieldCache = _intFieldCaches[_intFieldCacheIndex++];
@@ -2399,6 +2401,7 @@ namespace COM3D2.MotionTimelineEditor
                 cache.Update(transform);
                 _transformCaches.Add(cache);
                 _transformCacheIndex++;
+                MTEUtils.LogDebug("Add TransformCache: " + transform);
                 return cache;
             }
         }
@@ -2417,6 +2420,7 @@ namespace COM3D2.MotionTimelineEditor
             {
                 fieldCache = new ColorFieldCache();
                 _colorFieldCaches.Add(fieldCache);
+                MTEUtils.LogDebug("Add ColorFieldCache: " + label);
             }
 
             fieldCache = _colorFieldCaches[_colorFieldCacheIndex++];
