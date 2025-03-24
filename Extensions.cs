@@ -766,7 +766,7 @@ namespace COM3D2.MotionTimelineEditor
             anistField.SetValue(body, anist);
         }
 
-        public static string CrossFadeLayer(
+        public static AnimationState CrossFadeLayer(
             this TBody body,
             string filename,
             AFileSystemBase fileSystem,
@@ -780,6 +780,12 @@ namespace COM3D2.MotionTimelineEditor
             if (body.m_Bones == null)
             {
                 NDebug.Assert("まだ読み込まれる前のBodyにモーションを指定しようとしました。" + body.gameObject.name, false);
+                return null;
+            }
+
+            if (string.IsNullOrEmpty(filename))
+            {
+                return null;
             }
 
             var animeTag = filename.ToLower();
@@ -787,7 +793,7 @@ namespace COM3D2.MotionTimelineEditor
             var animationState = body.LoadAnime(animeTag, fileSystem, filename, additive, loop);
             if (animationState == null)
             {
-                return string.Empty;
+                return null;
             }
 
             animationState.layer = layer;
@@ -826,10 +832,10 @@ namespace COM3D2.MotionTimelineEditor
                 }
             }
 
-            return animeTag;
+            return animationState;
         }
 
-        public static string CrossFadeLayer(
+        public static AnimationState CrossFadeLayer(
             this TBody body,
             string tag,
             byte[] byte_data,
@@ -884,7 +890,7 @@ namespace COM3D2.MotionTimelineEditor
                 }
             }
 
-            return tag;
+            return animationState;
         }
 
         public static void StopAndDestroyAnimeLayer(this TBody body, int layerno)

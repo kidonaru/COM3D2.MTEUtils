@@ -138,6 +138,17 @@ namespace COM3D2.MotionTimelineEditor
             UnityEngine.Debug.LogException(e);
         }
 
+        public static bool showMemoryUsage = false;
+
+        public static void LogMemoryUsage(string tag)
+        {
+            if (showMemoryUsage && Time.frameCount % 60 == 0)
+            {
+                long totalMemory = GC.GetTotalMemory(false);
+                Log("[{0}] Memory: {1:F2} MB", tag, totalMemory / 1024.0 / 1024.0);
+            }
+        }
+
         public static string CombinePaths(params string[] parts)
         {
             return parts.Aggregate(Path.Combine);
