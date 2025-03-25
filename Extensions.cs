@@ -4,6 +4,7 @@ using RootMotion.FinalIK;
 using UnityEngine;
 using System.Linq;
 using System;
+using System.IO;
 
 namespace COM3D2.MotionTimelineEditor
 {
@@ -891,6 +892,42 @@ namespace COM3D2.MotionTimelineEditor
             }
 
             return animationState;
+        }
+
+        public static AnimationState CrossFadeLayerByFullPath(
+            this TBody body,
+            string fullPath,
+            int layer,
+            bool additive = false,
+            bool loop = false,
+            bool boAddQue = false,
+            float fade = 0.5f,
+            float weight = 1f)
+        {
+            byte[] anmData = new byte[0];
+            try
+            {
+                using (FileStream fileStream = new FileStream(fullPath, FileMode.Open, FileAccess.Read))
+                {
+                    anmData = new byte[fileStream.Length];
+                    fileStream.Read(anmData, 0, anmData.Length);
+                }
+            }
+            catch
+            {
+                MTEUtils.LogError("アニメーションファイルの読み込みに失敗しました。" + fullPath);
+            }
+
+            AnimationState state = null;
+
+            if (anmData.Length > 0)
+            {
+                var anmTag = Path.GetFileName(fullPath).ToLower();
+                state = body.CrossFadeLayer(anmTag, anmData, layer, additive, loop, boAddQue, fade, weight);
+                body.maid.SetAutoTwistAll(true);
+            }
+
+            return state;
         }
 
         public static void StopAndDestroyAnimeLayer(this TBody body, int layerno)
