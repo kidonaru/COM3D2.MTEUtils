@@ -4,6 +4,8 @@ namespace COM3D2.MotionTimelineEditor
 {
     public class AnimationLayerInfo
     {
+        public object original = null;
+
         public int layer = 0;
 
         private string _anmName = "";

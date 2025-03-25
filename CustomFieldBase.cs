@@ -27,6 +27,8 @@ namespace COM3D2.MotionTimelineEditor
         {
         };
 
+        public bool initialized { get; private set; } = false;
+
         public virtual bool Init(Assembly assembly = null)
         {
             this.assembly = assembly;
@@ -51,6 +53,7 @@ namespace COM3D2.MotionTimelineEditor
                 return false;
             }
 
+            initialized = true;
             return true;
         }
 
