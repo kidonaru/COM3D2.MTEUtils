@@ -1035,6 +1035,7 @@ namespace COM3D2.MotionTimelineEditor
                     if (subView.DrawButton("P", 20, 20))
                     {
                         option.onChanged(GUIUtility.systemCopyBuffer);
+                        updated = true;
                     }
                 }
             }

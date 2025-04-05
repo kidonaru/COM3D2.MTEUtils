@@ -28,6 +28,7 @@ namespace COM3D2.MotionTimelineEditor
         public float weight = 1f;
         public float speed = 1f;
         public bool loop = true;
+        public bool overrideTime = false;
 
         public AnimationState state = null;
 
@@ -43,6 +44,7 @@ namespace COM3D2.MotionTimelineEditor
             weight = 1f;
             speed = 1f;
             loop = true;
+            overrideTime = false;
             state = null;
         }
     }

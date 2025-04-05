@@ -969,11 +969,15 @@ namespace COM3D2.MotionTimelineEditor
                 return;
             }
 
-            bool isPlaying = state.enabled;
+            bool isAnmEnabled = state.enabled;
             state.time = time;
-            state.enabled = true;
-            animation.Sample();
-            state.enabled = isPlaying;
+
+            if (!isAnmEnabled)
+            {
+                state.enabled = true;
+                animation.Sample();
+                state.enabled = isAnmEnabled;
+            }
         }
 
         public static float GetPlayingTime(this AnimationState state)
