@@ -997,6 +997,7 @@ namespace COM3D2.MotionTimelineEditor
             public string value;
             public Action<string> onChanged;
             public int maxLines;
+            public bool disabled;
             public bool hiddenButton;
         }
 
@@ -1008,6 +1009,8 @@ namespace COM3D2.MotionTimelineEditor
 
             BeginSubView(subViewRect, LayoutDirection.Horizontal);
             {
+                subView.BeginEnabled(!option.disabled);
+
                 if (!string.IsNullOrEmpty(option.label))
                 {
                     subView.DrawLabel(option.label, option.labelWidth, 20);
@@ -1038,6 +1041,8 @@ namespace COM3D2.MotionTimelineEditor
                         updated = true;
                     }
                 }
+
+                subView.EndEnabled();
             }
             EndSubView();
 
@@ -1596,7 +1601,7 @@ namespace COM3D2.MotionTimelineEditor
 
         private static GUIContent _tempContent = null;
 
-        private static Vector2 CalcSize(GUIStyle style, string text)
+        public static Vector2 CalcSize(GUIStyle style, string text)
         {
             if (_tempContent == null)
             {
@@ -1607,7 +1612,18 @@ namespace COM3D2.MotionTimelineEditor
             return style.CalcSize(_tempContent);
         }
 
-        private static float CalcHeight(GUIStyle style, string text, float width)
+        public static float CalcWidth(GUIStyle style, string text)
+        {
+            if (_tempContent == null)
+            {
+                _tempContent = new GUIContent();
+            }
+
+            _tempContent.text = text;
+            return style.CalcSize(_tempContent).x;
+        }
+
+        public static float CalcHeight(GUIStyle style, string text, float width)
         {
             if (_tempContent == null)
             {

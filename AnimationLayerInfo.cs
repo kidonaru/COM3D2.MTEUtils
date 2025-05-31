@@ -2,6 +2,7 @@ using UnityEngine;
 
 namespace COM3D2.MotionTimelineEditor
 {
+
     public class AnimationLayerInfo
     {
         public object original = null;
