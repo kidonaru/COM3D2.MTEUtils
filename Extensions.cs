@@ -1022,5 +1022,15 @@ namespace COM3D2.MotionTimelineEditor
             }
             UnityEngine.Object.Destroy(clip);
         }
+
+        public static bool IsNewFace(this Maid maid)
+        {
+            if (maid == null || maid.body0 == null)
+            {
+                return false;
+            }
+
+            return CMT.SearchObjName(maid.body0.m_trBones, "Ear_L", false) != null;
+        }
     }
 }
