@@ -401,10 +401,7 @@ namespace COM3D2.MotionTimelineEditor
                     _gsWin.onFocused.background = hoverTex;
                     _gsWin.focused.background = hoverTex;
 
-                    _gsWin.onHover.textColor = Color.white;
-                    _gsWin.hover.textColor = Color.white;
-                    _gsWin.onFocused.textColor = Color.white;
-                    _gsWin.focused.textColor = Color.white;
+                    SetTextColorAllStates(_gsWin, Color.white);
                 }
                 return _gsWin;
             }
@@ -496,6 +493,48 @@ namespace COM3D2.MotionTimelineEditor
             fontSize = 12,
             alignment = TextAnchor.MiddleCenter
         };
+
+        // 組み込み GUIStyle から複製した textColor は Unity バージョンで異なる
+        // (COM3D2.5 の Unity 2022 では黒になる) ため、明示的に白へ揃える
+        static GUIView()
+        {
+            try
+            {
+                // 新規に GUIStyle の static フィールドを追加したらここにも追加すること
+                var styles = new[]
+                {
+                    gsLabel, gsLabelRight, gsButton, gsSelectedButton, gsToggle,
+                    gsTextField, gsTextArea, gsTile, gsTileLabel, gsTagLabel,
+                    gsTagBackground, gsMask, gsBox,
+                };
+                foreach (var style in styles)
+                {
+                    SetTextColorAllStates(style, Color.white);
+                }
+            }
+            catch (System.Exception e)
+            {
+                // 静的コンストラクタの例外は TypeInitializationException として型全体を
+                // 使用不能にするため、色設定の失敗は握りつぶして継続する
+                MTEUtils.LogException(e);
+            }
+        }
+
+        public static void SetTextColorAllStates(GUIStyle style, Color color)
+        {
+            if (style == null)
+            {
+                return;
+            }
+            style.normal.textColor = color;
+            style.hover.textColor = color;
+            style.active.textColor = color;
+            style.focused.textColor = color;
+            style.onNormal.textColor = color;
+            style.onHover.textColor = color;
+            style.onActive.textColor = color;
+            style.onFocused.textColor = color;
+        }
 
         public static Vector2 defaultPadding = new Vector2(10, 10);
         public static float defaultMargin = 5;

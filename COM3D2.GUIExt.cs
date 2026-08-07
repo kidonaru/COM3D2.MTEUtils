@@ -28,8 +28,15 @@ namespace COM3D2.GUIExtBase
             EventDelegate.Set(button.GetComponent<UIButton>().onClick, () => { action(button); });
             UIEventTrigger trigger = button.GetComponent<UIEventTrigger>();
             EventDelegate.Set(trigger.onHoverOver, () => { VisibleExplanationRaw(tooltip, true); });
+#if COM3D25
+            // COM3D2.5 で VisibleExplanation の第1引数が string から int (説明文リストの番号) に変更された。
+            // 非表示にするだけなので番号は使われない
+            EventDelegate.Set(trigger.onHoverOut, () => { _SysShortcut.VisibleExplanation(0, false); });
+            EventDelegate.Set(trigger.onDragStart, () => { _SysShortcut.VisibleExplanation(0, false); });
+#else
             EventDelegate.Set(trigger.onHoverOut, () => { _SysShortcut.VisibleExplanation(null, false); });
             EventDelegate.Set(trigger.onDragStart, () => { _SysShortcut.VisibleExplanation(null, false); });
+#endif
             UISprite sprite = button.GetComponent<UISprite>();
             sprite.type = UIBasicSprite.Type.Filled;
             sprite.fillAmount = 0.0f;
