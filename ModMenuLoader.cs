@@ -9,7 +9,7 @@ namespace COM3D2.MotionTimelineEditor
 {
     public class MenuInfo
     {
-        public static int CacheVersion = 5;
+        public static int CacheVersion = 6;
 
         public string fileName;
         public string path;
@@ -21,6 +21,8 @@ namespace COM3D2.MotionTimelineEditor
         public byte[] iconData = new byte[0];
         public float priority;
         public string modelFileName;
+        // セット系メニューが参照する子メニュー名（セット系以外はnull）
+        public List<string> setItemMenuNames;
         public MaidPartType colorSetMaidPartType = MaidPartType.null_mpn;
         public string colorSetMenuName;
         public string variationBaseFileName;
@@ -71,6 +73,7 @@ namespace COM3D2.MotionTimelineEditor
                 iconData = binaryReader.ReadBytes(binaryReader.ReadInt32()),
                 priority = binaryReader.ReadSingle(),
                 modelFileName = binaryReader.ReadNullableString(),
+                setItemMenuNames = DeserializeSetItemMenuNames(binaryReader),
                 colorSetMaidPartType = (MaidPartType)binaryReader.ReadInt32(),
                 colorSetMenuName = binaryReader.ReadNullableString(),
                 variationBaseFileName = binaryReader.ReadNullableString(),
@@ -81,6 +84,22 @@ namespace COM3D2.MotionTimelineEditor
                 isOfficial = binaryReader.ReadBoolean(),
                 isMan = binaryReader.ReadBoolean(),
             };
+        }
+
+        private static List<string> DeserializeSetItemMenuNames(BinaryReader binaryReader)
+        {
+            var count = binaryReader.ReadInt32();
+            if (count == 0)
+            {
+                return null;
+            }
+
+            var menuNames = new List<string>(count);
+            for (int i = 0; i < count; i++)
+            {
+                menuNames.Add(binaryReader.ReadNullableString());
+            }
+            return menuNames;
         }
 
         public void Serialize(BinaryWriter binaryWriter)
@@ -96,6 +115,14 @@ namespace COM3D2.MotionTimelineEditor
             binaryWriter.Write(iconData);
             binaryWriter.Write(priority);
             binaryWriter.WriteNullableString(modelFileName);
+            binaryWriter.Write(setItemMenuNames != null ? setItemMenuNames.Count : 0);
+            if (setItemMenuNames != null)
+            {
+                foreach (var menuName in setItemMenuNames)
+                {
+                    binaryWriter.WriteNullableString(menuName);
+                }
+            }
             binaryWriter.Write((int)colorSetMaidPartType);
             binaryWriter.WriteNullableString(colorSetMenuName);
             binaryWriter.WriteNullableString(variationBaseFileName);
@@ -119,6 +146,7 @@ namespace COM3D2.MotionTimelineEditor
             MTEUtils.Log("iconData: {0}", iconData.Length);
             MTEUtils.Log("priority: {0}", priority);
             MTEUtils.Log("modelFileName: {0}", modelFileName);
+            MTEUtils.Log("setItemMenuNames: {0}", setItemMenuNames != null ? string.Join(", ", setItemMenuNames.ToArray()) : "");
             MTEUtils.Log("colorSetMPN: {0}", colorSetMaidPartType);
             MTEUtils.Log("colorSetMenuName: {0}", colorSetMenuName);
             MTEUtils.Log("variationBaseFileName: {0}", variationBaseFileName);
@@ -280,6 +308,18 @@ namespace COM3D2.MotionTimelineEditor
                                 if (stringList.Length > 1 && !string.IsNullOrEmpty(stringList[1]))
                                 {
                                     menu.modelFileName = stringList[1];
+                                }
+                            }
+                            else if (stringCom == "アイテム")
+                            {
+                                // セット系メニューは子メニューを列挙する
+                                if (stringList.Length > 1 && !string.IsNullOrEmpty(stringList[1]))
+                                {
+                                    if (menu.setItemMenuNames == null)
+                                    {
+                                        menu.setItemMenuNames = new List<string>();
+                                    }
+                                    menu.setItemMenuNames.Add(stringList[1].ToLower());
                                 }
                             }
                             else if (stringCom == "color_set")

@@ -248,6 +248,36 @@ namespace COM3D2.MotionTimelineEditor
             action?.Invoke();
         }
 
+        /// <summary>
+        /// ファイルが存在するか判定する（MOD用ファイルシステムを優先し、無ければ本体側を確認）
+        /// </summary>
+        public static bool IsExistentFile(string fileName)
+        {
+            if (string.IsNullOrEmpty(fileName))
+            {
+                return false;
+            }
+
+            if (IsExistentFileInternal(fileName))
+            {
+                return true;
+            }
+
+            // 大文字小文字の違いで取りこぼさないように小文字でも確認する
+            var lowerFileName = fileName.ToLower();
+            return lowerFileName != fileName && IsExistentFileInternal(lowerFileName);
+        }
+
+        private static bool IsExistentFileInternal(string fileName)
+        {
+            if (GameUty.FileSystemMod != null && GameUty.FileSystemMod.IsExistentFile(fileName))
+            {
+                return true;
+            }
+
+            return GameUty.FileSystem != null && GameUty.FileSystem.IsExistentFile(fileName);
+        }
+
         public static bool IsReady(this Maid maid)
         {
             return (maid != null && maid.body0 != null && maid.body0.m_Bones != null &&
