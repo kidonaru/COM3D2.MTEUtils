@@ -249,6 +249,25 @@ namespace COM3D2.MotionTimelineEditor
         }
 
         /// <summary>
+        /// メイドへのアイテム適用（AllProcProp）の完了を待ってからアクションを実行する
+        /// </summary>
+        public static void ExecuteAfterProcProp(Maid maid, Action action)
+        {
+            GameMain.Instance.StartCoroutine(ExecuteAfterProcPropInternal(maid, action));
+        }
+
+        private static IEnumerator ExecuteAfterProcPropInternal(Maid maid, Action action)
+        {
+            // セットアイテムの各部位への適用はAllProcProp内で行われるため、完了するまで待つ
+            // maidのnullチェックは、待機中にメイドが破棄された場合に抜けるためのもの
+            while (maid != null && maid.IsAllProcPropBusy)
+            {
+                yield return null;
+            }
+            action?.Invoke();
+        }
+
+        /// <summary>
         /// ファイルが存在するか判定する（MOD用ファイルシステムを優先し、無ければ本体側を確認）
         /// </summary>
         public static bool IsExistentFile(string fileName)
