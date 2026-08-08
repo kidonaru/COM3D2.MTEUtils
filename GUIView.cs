@@ -380,165 +380,180 @@ namespace COM3D2.MotionTimelineEditor
         private List<ColorFieldCache> _colorFieldCaches = new List<ColorFieldCache>();
         private int _colorFieldCacheIndex = 0;
 
+        // 組み込み GUIStyle ("button" 等) の複製は GUISkin.current が有効な OnGUI 内でしか行えない。
+        // OnGUI 外で複製すると Unity は空の StyleNotFoundError を返し、背景・border・padding を
+        // 失った見た目になる。Unity 5.6 (COM3D2) では OnGUI 後も GUISkin.current が保持されたため
+        // 表面化しなかったが、Unity 2022 (COM3D2.5) では毎回 null になるため必ず遅延生成する。
+        private static bool _stylesInitialized = false;
+
         private static GUIStyle _gsWin = null;
-        public static GUIStyle gsWin
+        private static GUIStyle _gsLabel = null;
+        private static GUIStyle _gsLabelRight = null;
+        private static GUIStyle _gsButton = null;
+        private static GUIStyle _gsSelectedButton = null;
+        private static GUIStyle _gsToggle = null;
+        private static GUIStyle _gsTextField = null;
+        private static GUIStyle _gsTextArea = null;
+        private static GUIStyle _gsTile = null;
+        private static GUIStyle _gsTileLabel = null;
+        private static GUIStyle _gsTagLabel = null;
+        private static GUIStyle _gsTagBackground = null;
+        private static GUIStyle _gsMask = null;
+        private static GUIStyle _gsBox = null;
+
+        public static GUIStyle gsWin { get { InitStyles(); return _gsWin; } }
+        public static GUIStyle gsLabel { get { InitStyles(); return _gsLabel; } }
+        public static GUIStyle gsLabelRight { get { InitStyles(); return _gsLabelRight; } }
+        public static GUIStyle gsButton { get { InitStyles(); return _gsButton; } }
+        public static GUIStyle gsSelectedButton { get { InitStyles(); return _gsSelectedButton; } }
+        public static GUIStyle gsToggle { get { InitStyles(); return _gsToggle; } }
+        public static GUIStyle gsTextField { get { InitStyles(); return _gsTextField; } }
+        public static GUIStyle gsTextArea { get { InitStyles(); return _gsTextArea; } }
+        public static GUIStyle gsTile { get { InitStyles(); return _gsTile; } }
+        public static GUIStyle gsTileLabel { get { InitStyles(); return _gsTileLabel; } }
+        public static GUIStyle gsTagLabel { get { InitStyles(); return _gsTagLabel; } }
+        public static GUIStyle gsTagBackground { get { InitStyles(); return _gsTagBackground; } }
+        public static GUIStyle gsMask { get { InitStyles(); return _gsMask; } }
+        public static GUIStyle gsBox { get { InitStyles(); return _gsBox; } }
+
+        /// <summary>
+        /// 組み込みスタイル由来の GUIStyle を生成する。必ず OnGUI 内から呼ぶこと。
+        /// </summary>
+        public static void InitStyles()
         {
-            get
+            if (_stylesInitialized)
             {
-                if (_gsWin == null)
-                {
-                    _gsWin = new GUIStyle("box")
-                    {
-                        fontSize = 12,
-                        alignment = TextAnchor.UpperLeft,
-                    };
-
-                    var windowHoverColor = option.windowHoverColor;
-                    var hoverTex = GUIView.CreateColorTexture(windowHoverColor);
-
-                    _gsWin.onHover.background = hoverTex;
-                    _gsWin.hover.background = hoverTex;
-                    _gsWin.onFocused.background = hoverTex;
-                    _gsWin.focused.background = hoverTex;
-
-                    SetTextColorAllStates(_gsWin, Color.white);
-                }
-                return _gsWin;
+                return;
             }
-        }
-        public static GUIStyle gsLabel = new GUIStyle("label")
-        {
-            fontSize = 12,
-            alignment = TextAnchor.MiddleLeft,
-            wordWrap = false,
-        };
-        public static GUIStyle gsLabelRight = new GUIStyle("label")
-        {
-            fontSize = 12,
-            alignment = TextAnchor.MiddleRight,
-            wordWrap = false,
-        };
-        public static GUIStyle gsButton = new GUIStyle("button")
-        {
-            fontSize = 12,
-            alignment = TextAnchor.MiddleCenter
-        };
-        public static GUIStyle gsSelectedButton = new GUIStyle("box")
-        {
-            fontSize = 12,
-            alignment = TextAnchor.MiddleCenter,
-        };
-        public static GUIStyle gsToggle = new GUIStyle("toggle")
-        {
-            fontSize = 12,
-            alignment = TextAnchor.MiddleLeft,
-        };
-        public static GUIStyle gsTextField = new GUIStyle("textField")
-        {
-            fontSize = 12,
-            alignment = TextAnchor.MiddleLeft
-        };
-        public static GUIStyle gsTextArea = new GUIStyle("textArea")
-        {
-            fontSize = 12,
-            alignment = TextAnchor.UpperLeft,
-        };
-        public static GUIStyle gsTile = new GUIStyle("button")
-        {
-            normal = {
-                background = CreateColorTexture(new Color(0, 0, 0, 0.5f))
-            },
-            hover = {
-                background = CreateColorTexture(new Color(0.75f, 0.75f, 0.75f, 0.5f))
-            },
-            active = {
-                background = CreateColorTexture(new Color(0.5f, 0.5f, 0.5f, 0.5f))
-            }
-        };
-        public static GUIStyle gsTileLabel = new GUIStyle("button")
-        {
-            fontSize = 12,
-            alignment = TextAnchor.LowerCenter,
-            wordWrap = true,
-            normal = {
-                background = CreateColorTexture(new Color(0, 0, 0, 0.5f))
-            },
-        };
-        public static GUIStyle gsTagLabel = new GUIStyle("box")
-        {
-            fontSize = 12,
-            fontStyle = FontStyle.Bold,
-            alignment = TextAnchor.MiddleCenter,
-            wordWrap = false,
-            normal = {
-                background = CreateColorTexture(new Color(0, 0, 0, 0))
-            },
-        };
-        public static GUIStyle gsTagBackground = new GUIStyle("box")
-        {
-            normal = {
-                background = CreateColorTexture(Color.white)
-            },
-        };
-        public static GUIStyle gsMask = new GUIStyle("box")
-        {
-            fontSize = 12,
-            alignment = TextAnchor.MiddleCenter,
-            normal = {
-                background = CreateColorTexture(new Color(0, 0, 0, 0.5f))
-            }
-        };
-        public static GUIStyle gsBox = new GUIStyle("box")
-        {
-            fontSize = 12,
-            alignment = TextAnchor.MiddleCenter
-        };
 
-        // 組み込み GUIStyle から複製した textColor は Unity バージョンで異なる
-        // (COM3D2.5 の Unity 2022 では黒になる) ため、明示的に白へ揃える
-        static GUIView()
-        {
+            // Event.current が null = OnGUI 外。組み込みスタイルを取得できないので次フレームに委ねる
+            if (Event.current == null)
+            {
+                return;
+            }
+
+            // 失敗しても再試行しない。OnGUI 冒頭で呼ばれるため、例外を投げ続けると
+            // 全ウィンドウが描画されないまま毎フレーム同じ例外とログを繰り返すことになる
+            _stylesInitialized = true;
+
             try
             {
-                // 新規に GUIStyle の static フィールドを追加したらここにも追加すること
-                var styles = new[]
-                {
-                    gsLabel, gsLabelRight, gsButton, gsSelectedButton, gsToggle,
-                    gsTextField, gsTextArea, gsTile, gsTileLabel, gsTagLabel,
-                    gsTagBackground, gsMask, gsBox,
-                };
-                foreach (var style in styles)
-                {
-                    SetTextColorAllStates(style, Color.white);
-                }
+                BuildStyles();
             }
             catch (System.Exception e)
             {
-                // 静的コンストラクタの例外は TypeInitializationException として型全体を
-                // 使用不能にするため、色設定の失敗は握りつぶして継続する
                 MTEUtils.LogException(e);
             }
         }
 
-        public static void SetTextColorAllStates(GUIStyle style, Color color)
+        /// <summary>
+        /// 新規に GUIStyle を追加したらここにも追加すること。
+        /// </summary>
+        private static void BuildStyles()
         {
-            if (style == null)
+            _gsWin = new GUIStyle("box")
             {
-                return;
-            }
-            style.normal.textColor = color;
-            style.hover.textColor = color;
-            style.active.textColor = color;
-            style.focused.textColor = color;
-            style.onNormal.textColor = color;
-            style.onHover.textColor = color;
-            style.onActive.textColor = color;
-            style.onFocused.textColor = color;
+                fontSize = 12,
+                alignment = TextAnchor.UpperLeft,
+            };
+            var hoverTex = CreateColorTexture(option.windowHoverColor);
+            _gsWin.onHover.background = hoverTex;
+            _gsWin.hover.background = hoverTex;
+            _gsWin.onFocused.background = hoverTex;
+            _gsWin.focused.background = hoverTex;
+
+            _gsLabel = new GUIStyle("label")
+            {
+                fontSize = 12,
+                alignment = TextAnchor.MiddleLeft,
+                wordWrap = false,
+            };
+            _gsLabelRight = new GUIStyle("label")
+            {
+                fontSize = 12,
+                alignment = TextAnchor.MiddleRight,
+                wordWrap = false,
+            };
+            _gsButton = new GUIStyle("button")
+            {
+                fontSize = 12,
+                alignment = TextAnchor.MiddleCenter
+            };
+            _gsSelectedButton = new GUIStyle("box")
+            {
+                fontSize = 12,
+                alignment = TextAnchor.MiddleCenter,
+            };
+            _gsToggle = new GUIStyle("toggle")
+            {
+                fontSize = 12,
+                alignment = TextAnchor.MiddleLeft,
+            };
+            _gsTextField = new GUIStyle("textField")
+            {
+                fontSize = 12,
+                alignment = TextAnchor.MiddleLeft
+            };
+            _gsTextArea = new GUIStyle("textArea")
+            {
+                fontSize = 12,
+                alignment = TextAnchor.UpperLeft,
+            };
+            _gsTile = new GUIStyle("button")
+            {
+                normal = {
+                    background = CreateColorTexture(new Color(0, 0, 0, 0.5f))
+                },
+                hover = {
+                    background = CreateColorTexture(new Color(0.75f, 0.75f, 0.75f, 0.5f))
+                },
+                active = {
+                    background = CreateColorTexture(new Color(0.5f, 0.5f, 0.5f, 0.5f))
+                }
+            };
+            _gsTileLabel = new GUIStyle("button")
+            {
+                fontSize = 12,
+                alignment = TextAnchor.LowerCenter,
+                wordWrap = true,
+                normal = {
+                    background = CreateColorTexture(new Color(0, 0, 0, 0.5f))
+                },
+            };
+            _gsTagLabel = new GUIStyle("box")
+            {
+                fontSize = 12,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter,
+                wordWrap = false,
+                normal = {
+                    background = CreateColorTexture(new Color(0, 0, 0, 0))
+                },
+            };
+            _gsTagBackground = new GUIStyle("box")
+            {
+                normal = {
+                    background = CreateColorTexture(Color.white)
+                },
+            };
+            _gsMask = new GUIStyle("box")
+            {
+                fontSize = 12,
+                alignment = TextAnchor.MiddleCenter,
+                normal = {
+                    background = CreateColorTexture(new Color(0, 0, 0, 0.5f))
+                }
+            };
+            _gsBox = new GUIStyle("box")
+            {
+                fontSize = 12,
+                alignment = TextAnchor.MiddleCenter
+            };
         }
 
         public static Vector2 defaultPadding = new Vector2(10, 10);
         public static float defaultMargin = 5;
-        public static Texture2D texDummy = new Texture2D(1, 1);
+        public static Texture2D texDummy = new Texture2D(1, 1) { hideFlags = HideFlags.HideAndDontSave };
         public static Texture2D texWhite = CreateColorTexture(Color.white);
 
         public static IGUIOption option = new GUIOptionBase();
@@ -1344,6 +1359,9 @@ namespace COM3D2.MotionTimelineEditor
         public static Texture2D CreateColorTexture(Color color)
         {
             Texture2D texture = new Texture2D(1, 1);
+            // GUIStyle は UnityEngine.Object ではないため参照とみなされず、シーン遷移時の
+            // Resources.UnloadUnusedAssets() で破棄されてしまう。DontSave で保護する
+            texture.hideFlags = HideFlags.HideAndDontSave;
             texture.SetPixel(0, 0, color);
             texture.Apply();
             return texture;
