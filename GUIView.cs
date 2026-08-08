@@ -462,6 +462,17 @@ namespace COM3D2.MotionTimelineEditor
             _gsWin.onFocused.background = hoverTex;
             _gsWin.focused.background = hoverTex;
 
+            // 組み込み box のフォーカス/ホバー状態は文字色が黒のため、
+            // タイトルが暗い背景に埋もれる。通常状態と同じ文字色にそろえる
+            var winTextColor = _gsWin.normal.textColor;
+            _gsWin.onNormal.textColor = winTextColor;
+            _gsWin.hover.textColor = winTextColor;
+            _gsWin.onHover.textColor = winTextColor;
+            _gsWin.focused.textColor = winTextColor;
+            _gsWin.onFocused.textColor = winTextColor;
+            _gsWin.active.textColor = winTextColor;
+            _gsWin.onActive.textColor = winTextColor;
+
             _gsLabel = new GUIStyle("label")
             {
                 fontSize = 12,
