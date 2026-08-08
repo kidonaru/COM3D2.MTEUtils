@@ -986,6 +986,55 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
+        /// <summary>
+        /// 左右ドラッグで数値を増減できるラベル。1pxあたり sensitivity、Shift押下中は0.1倍。
+        /// ドラッグ中はウィンドウごと動いてしまわないようイベントを消費する
+        /// </summary>
+        public void DrawDragLabel(
+            string text,
+            float width,
+            float height,
+            float sensitivity,
+            Action<float> onDelta,
+            GUIStyle style = null)
+        {
+            var drawRect = GetDrawRect(width, height);
+            var controlId = GUIUtility.GetControlID(FocusType.Passive);
+
+            GUI.Label(drawRect, text, style ?? gsLabel);
+            this.NextElement(drawRect);
+
+            var e = Event.current;
+            switch (e.GetTypeForControl(controlId))
+            {
+                case EventType.MouseDown:
+                    if (e.button == 0 && drawRect.Contains(e.mousePosition))
+                    {
+                        GUIUtility.hotControl = controlId;
+                        e.Use();
+                    }
+                    break;
+                case EventType.MouseDrag:
+                    if (GUIUtility.hotControl == controlId)
+                    {
+                        var scale = e.shift ? 0.1f : 1f;
+                        if (e.delta.x != 0f)
+                        {
+                            onDelta(e.delta.x * sensitivity * scale);
+                        }
+                        e.Use();
+                    }
+                    break;
+                case EventType.MouseUp:
+                    if (GUIUtility.hotControl == controlId)
+                    {
+                        GUIUtility.hotControl = 0;
+                        e.Use();
+                    }
+                    break;
+            }
+        }
+
         public bool DrawTextField(
             string label,
             float labelWidth,
