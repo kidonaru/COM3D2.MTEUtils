@@ -224,14 +224,23 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
-        public static void ResetInputOnScroll(Rect windowRect)
+        /// <summary>
+        /// マウスカーソルが GUI 座標系のウィンドウ矩形上にあるか（OnGUI 外からも呼べる）。
+        /// 描画中の要素に対する判定は GUIView.IsMouseOverRect を使うこと
+        /// </summary>
+        public static bool IsMouseOverWindowRect(Rect windowRect)
         {
             var mousePosition = Input.mousePosition;
-            if (mousePosition.x > windowRect.x &&
+            var guiY = Screen.height - mousePosition.y;
+            return mousePosition.x > windowRect.x &&
                 mousePosition.x < windowRect.x + windowRect.width &&
-                Screen.height - mousePosition.y > windowRect.y &&
-                Screen.height - mousePosition.y < windowRect.y + windowRect.height &&
-                Input.GetAxis("Mouse ScrollWheel") != 0f)
+                guiY > windowRect.y &&
+                guiY < windowRect.y + windowRect.height;
+        }
+
+        public static void ResetInputOnScroll(Rect windowRect)
+        {
+            if (IsMouseOverWindowRect(windowRect) && Input.GetAxis("Mouse ScrollWheel") != 0f)
             {
                 Input.ResetInputAxes();
             }

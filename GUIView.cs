@@ -1491,6 +1491,22 @@ namespace COM3D2.MotionTimelineEditor
             return drawRect.Contains(Event.current.mousePosition);
         }
 
+        /// <summary>
+        /// ビュー領域内で右クリックされたらイベントを消費して true を返す。
+        /// スクロールビュー内は座標系がずれるため、BeginScrollView の外から呼ぶこと
+        /// </summary>
+        public bool ConsumeRightClickInView()
+        {
+            var e = Event.current;
+            if (!guiEnabled || e.type != EventType.MouseDown || e.button != 1 || !_viewRect.Contains(e.mousePosition))
+            {
+                return false;
+            }
+
+            e.Use();
+            return true;
+        }
+
         public void SetFocusComboBox(GUIComboBoxBase comboBox)
         {
             focusedComboBox = comboBox;
