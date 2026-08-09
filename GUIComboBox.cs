@@ -133,12 +133,9 @@ namespace COM3D2.MotionTimelineEditor
                 var buttonDrawRect = _buttonSubView.GetDrawRect(buttonSize.x, buttonSize.y);
                 buttonPos = buttonDrawRect.position;
 
-                var topView = view.topView;
-                if (topView.isScrollViewEnabled)
-                {
-                    buttonPos.x += topView.scrollViewRect.x - topView.scrollPosition.x;
-                    buttonPos.y += topView.scrollViewRect.y - topView.scrollPosition.y;
-                }
+                // 入れ子のスクロールビュー内でもポップアップがボタン直下に出るよう、
+                // 祖先まで含めたスクロール量で絶対座標に直す
+                buttonPos += view.scrollOffset;
 
                 if (_buttonSubView.DrawButton(name, buttonSize.x, buttonSize.y))
                 {
@@ -200,12 +197,9 @@ namespace COM3D2.MotionTimelineEditor
                 var buttonDrawRect = _buttonSubView.GetDrawRect(buttonSize.x, buttonSize.y);
                 buttonPos = buttonDrawRect.position;
 
-                var topView = view.topView;
-                if (topView.isScrollViewEnabled)
-                {
-                    buttonPos.x += topView.scrollViewRect.x - topView.scrollPosition.x;
-                    buttonPos.y += topView.scrollViewRect.y - topView.scrollPosition.y;
-                }
+                // 入れ子のスクロールビュー内でもポップアップがボタン直下に出るよう、
+                // 祖先まで含めたスクロール量で絶対座標に直す
+                buttonPos += view.scrollOffset;
 
                 if (_buttonSubView.DrawTextureButton(texture, buttonSize.x, buttonSize.y))
                 {

@@ -368,6 +368,27 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
+        /// <summary>
+        /// 自身と祖先のスクロールビューによる表示位置のずれの合計。
+        /// スクロールビュー内では描画座標がコンテンツ基準になるため、
+        /// ウィンドウ基準の座標が要る箇所 (ComboBox のポップアップ位置など) で足して使う。
+        /// </summary>
+        public Vector2 scrollOffset
+        {
+            get
+            {
+                var offset = Vector2.zero;
+                for (var view = this; view != null; view = view.parent)
+                {
+                    if (view.isScrollViewEnabled)
+                    {
+                        offset += view.scrollViewRect.position - view.scrollPosition;
+                    }
+                }
+                return offset;
+            }
+        }
+
         private List<FloatFieldCache> _fieldCaches = new List<FloatFieldCache>();
         private int _fieldCacheIndex = 0;
 
