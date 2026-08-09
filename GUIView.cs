@@ -2264,6 +2264,10 @@ namespace COM3D2.MotionTimelineEditor
             return updated;
         }
 
+        /// <summary>
+        /// 色設定を一行で描画する。
+        /// 「編集」ボタンで ColorPickerWindow を開き、そちらで詳細な編集を行う
+        /// </summary>
         public bool DrawColor(
             ColorFieldCache fieldCache,
             Color color,
@@ -2273,141 +2277,48 @@ namespace COM3D2.MotionTimelineEditor
             fieldCache.UpdateColor(color, true);
             fieldCache.UpdateDefaultColor(resetColor);
 
-            if (option.useHSVColor)
-            {
-                var newHSV = fieldCache.hsv;
-                var defaultHSV = fieldCache.defaultHSV;
-
-                DrawSliderValue(new SliderOption
-                {
-                    label = "H",
-                    labelWidth = 30,
-                    min = 0f,
-                    max = 1f,
-                    step = 0.01f,
-                    defaultValue = defaultHSV.x,
-                    value = newHSV.x,
-                    onChanged = x => newHSV.x = x,
-                });
-
-                DrawSliderValue(new SliderOption
-                {
-                    label = "S",
-                    labelWidth = 30,
-                    min = 0f,
-                    max = 1f,
-                    step = 0.01f,
-                    defaultValue = defaultHSV.y,
-                    value = newHSV.y,
-                    onChanged = y => newHSV.y = y,
-                });
-
-                DrawSliderValue(new SliderOption
-                {
-                    label = "V",
-                    labelWidth = 30,
-                    min = 0f,
-                    max = 1f,
-                    step = 0.01f,
-                    defaultValue = defaultHSV.z,
-                    value = newHSV.z,
-                    onChanged = z => newHSV.z = z,
-                });
-
-                if (fieldCache.hasAlpha)
-                {
-                    DrawSliderValue(new SliderOption
-                    {
-                        label = "A",
-                        labelWidth = 30,
-                        min = 0f,
-                        max = 1f,
-                        step = 0.01f,
-                        defaultValue = defaultHSV.w,
-                        value = newHSV.w,
-                        onChanged = z => newHSV.w = z,
-                    });
-                }
-
-                fieldCache.UpdateHSV(newHSV, true);
-            }
-            else
-            {
-                var newColor = color;
-
-                DrawSliderValue(new SliderOption
-                {
-                    label = "R",
-                    labelWidth = 30,
-                    min = 0f,
-                    max = 1f,
-                    step = 0.01f,
-                    defaultValue = resetColor.r,
-                    value = color.r,
-                    onChanged = x => newColor.r = x,
-                });
-
-                DrawSliderValue(new SliderOption
-                {
-                    label = "G",
-                    labelWidth = 30,
-                    min = 0f,
-                    max = 1f,
-                    step = 0.01f,
-                    defaultValue = resetColor.g,
-                    value = color.g,
-                    onChanged = y => newColor.g = y,
-                });
-
-                DrawSliderValue(new SliderOption
-                {
-                    label = "B",
-                    labelWidth = 30,
-                    min = 0f,
-                    max = 1f,
-                    step = 0.01f,
-                    defaultValue = resetColor.b,
-                    value = color.b,
-                    onChanged = z => newColor.b = z,
-                });
-
-                if (fieldCache.hasAlpha)
-                {
-                    DrawSliderValue(new SliderOption
-                    {
-                        label = "A",
-                        labelWidth = 30,
-                        min = 0f,
-                        max = 1f,
-                        step = 0.01f,
-                        defaultValue = resetColor.a,
-                        value = color.a,
-                        onChanged = z => newColor.a = z,
-                    });
-                }
-
-                fieldCache.UpdateColor(newColor, true);
-            }
+            var label = fieldCache.label;
+            var picker = ColorPickerWindow.instance;
+            var isEditing = picker.IsEditing(label);
 
             BeginLayout(LayoutDirection.Horizontal);
             {
-                if (fieldCache.label != null)
+                if (label != null)
                 {
-                    DrawLabel(fieldCache.label, 50, 20);
+                    DrawLabel(label, 90, 20);
                 }
 
                 DrawTexture(texWhite, 20, 20, color);
 
-                DrawColorFieldCache(null, fieldCache, 120, 20);
+                DrawColorFieldCache(null, fieldCache, 100, 20);
 
                 if (DrawButton("R", 20, 20))
                 {
                     fieldCache.ResetColor();
                 }
 
-                if (DrawTextureButton(option.changeIcon, 20, 20, 0))
+                // 編集ウィンドウをボタンに被らない位置へ出すため、描画前に矩形を控えておく
+                var buttonRect = GetDrawRect(45, 20);
+
+                if (DrawButton("編集", 45, 20, true, isEditing ? Color.green : (Color?)null))
                 {
-                    option.useHSVColor = !option.useHSVColor;
+                    if (isEditing)
+                    {
+                        picker.Close();
+                    }
+                    else
+                    {
+                        var screenPos = GUIUtility.GUIToScreenPoint(buttonRect.position);
+                        var anchorRect = new Rect(screenPos.x, screenPos.y, buttonRect.width, buttonRect.height);
+
+                        picker.Open(
+                            label,
+                            fieldCache.color,
+                            resetColor,
+                            fieldCache.hasAlpha,
+                            onColorChanged,
+                            anchorRect);
+                    }
                 }
             }
             EndLayout();
@@ -2419,7 +2330,62 @@ namespace COM3D2.MotionTimelineEditor
                 updated = true;
             }
 
+            // 編集ウィンドウへ最新の状態を渡す。渡されなくなったら向こう側で自動的に閉じる
+            picker.Sync(label, fieldCache.color, resetColor, fieldCache.hasAlpha, onColorChanged);
+
             return updated;
+        }
+
+        /// <summary>
+        /// カーブ設定を一行で描画する。
+        /// 「編集」ボタンで CurveEditorWindow を開き、そちらでキー操作による編集を行う
+        /// </summary>
+        public void DrawCurve(
+            string label,
+            CurveData curve,
+            Color curveColor,
+            Action onChanged)
+        {
+            var editor = CurveEditorWindow.instance;
+            var isEditing = editor.IsEditing(label);
+
+            BeginLayout(LayoutDirection.Horizontal);
+            {
+                if (label != null)
+                {
+                    DrawLabel(label, 90, 20);
+                }
+
+                DrawTexture(curve.GetPreviewTexture(64, 20), 64, 20);
+
+                if (DrawButton("R", 20, 20))
+                {
+                    curve.CopyFrom(CurveData.Linear());
+                    onChanged?.Invoke();
+                }
+
+                // 編集ウィンドウをボタンに被らない位置へ出すため、描画前に矩形を控えておく
+                var buttonRect = GetDrawRect(45, 20);
+
+                if (DrawButton("編集", 45, 20, true, isEditing ? Color.green : (Color?)null))
+                {
+                    if (isEditing)
+                    {
+                        editor.Close();
+                    }
+                    else
+                    {
+                        var screenPos = GUIUtility.GUIToScreenPoint(buttonRect.position);
+                        var anchorRect = new Rect(screenPos.x, screenPos.y, buttonRect.width, buttonRect.height);
+
+                        editor.Open(label, curve, curveColor, onChanged, anchorRect);
+                    }
+                }
+            }
+            EndLayout();
+
+            // 編集ウィンドウへ最新の状態を渡す。渡されなくなったら向こう側で自動的に閉じる
+            editor.Sync(label, curve, curveColor, onChanged);
         }
 
         public T DrawTabs<T>(
