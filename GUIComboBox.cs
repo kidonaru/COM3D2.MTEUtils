@@ -124,7 +124,8 @@ namespace COM3D2.MotionTimelineEditor
 
                 if (showArrow)
                 {
-                    if (_buttonSubView.DrawButton("<", 20, 20))
+                    // 候補が空だと prevIndex / nextIndex が範囲外になるため押せなくする
+                    if (_buttonSubView.DrawButton("<", 20, 20, items.Count > 0))
                     {
                         this.currentIndex = this.prevIndex;
                         if (this.onSelected != null)
@@ -148,7 +149,7 @@ namespace COM3D2.MotionTimelineEditor
 
                 if (showArrow)
                 {
-                    if (_buttonSubView.DrawButton(">", 20, 20))
+                    if (_buttonSubView.DrawButton(">", 20, 20, items.Count > 0))
                     {
                         this.currentIndex = this.nextIndex;
                         if (this.onSelected != null)
@@ -188,7 +189,8 @@ namespace COM3D2.MotionTimelineEditor
             {
                 if (showArrow)
                 {
-                    if (_buttonSubView.DrawButton("<", 20, 20))
+                    // 候補が空だと prevIndex / nextIndex が範囲外になるため押せなくする
+                    if (_buttonSubView.DrawButton("<", 20, 20, items.Count > 0))
                     {
                         this.currentIndex = this.prevIndex;
                         if (this.onSelected != null)
@@ -212,7 +214,7 @@ namespace COM3D2.MotionTimelineEditor
 
                 if (showArrow)
                 {
-                    if (_buttonSubView.DrawButton(">", 20, 20))
+                    if (_buttonSubView.DrawButton(">", 20, 20, items.Count > 0))
                     {
                         this.currentIndex = this.nextIndex;
                         if (this.onSelected != null)
