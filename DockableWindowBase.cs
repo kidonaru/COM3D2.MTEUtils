@@ -215,7 +215,14 @@ namespace COM3D2.MotionTimelineEditor
 
             if (!_resize.isResizing)
             {
-                GUI.DragWindow(new Rect(0, 0, _windowRect.width, HEADER_HEIGHT));
+                if (isWholeWindowDraggable)
+                {
+                    GUI.DragWindow();
+                }
+                else
+                {
+                    GUI.DragWindow(new Rect(0, 0, _windowRect.width, HEADER_HEIGHT));
+                }
             }
         }
 
@@ -260,6 +267,14 @@ namespace COM3D2.MotionTimelineEditor
         protected virtual void OnSizeChanged(int width, int height)
         {
         }
+
+        /// <summary>
+        /// ヘッダー以外の余白を掴んでもウィンドウを動かせるようにするか。
+        /// ドッキング判定の起点はヘッダー押下なので、true でもタブ統合・分離の操作は変わらない。
+        /// 内容側に独自のドラッグ操作 (カラーピッカー等) を持つ窓は、
+        /// そのドラッグ中だけ false を返してウィンドウ移動と競合させないこと
+        /// </summary>
+        protected virtual bool isWholeWindowDraggable => true;
 
         public virtual void Close()
         {
