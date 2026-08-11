@@ -23,9 +23,8 @@ namespace COM3D2.MotionTimelineEditor
         public virtual float keyRepeatTime { get; } = 1f / 30f;
         public virtual bool useHSVColor { get; set; } = false;
         public virtual Color windowHoverColor { get; } = new Color(48 / 255f, 48 / 255f, 48 / 255f, 224 / 255f);
-        // トグル・ボタン等の有効状態を示すアクセント色
-        // (EditorSubWindow.ACCENT_COLOR と値を合わせてある。変更時は両方更新すること)
-        public virtual Color accentColor { get; } = Color.cyan;
+        // トグル・ボタン等の有効状態を示すアクセント色 (従来の Color.green 相当)
+        public virtual Color accentColor { get; } = Color.green;
         public virtual Texture2D changeIcon => GUIView.texWhite;
         public virtual Texture2D favoriteOffIcon { get; }
         public virtual Texture2D favoriteOnIcon { get; }
