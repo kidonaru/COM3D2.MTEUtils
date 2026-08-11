@@ -84,6 +84,9 @@ namespace COM3D2.MotionTimelineEditor
         /// <summary>非アクティブタブとしてホストから描画停止を指示されているか</summary>
         private bool _dockTabHidden;
 
+        /// <summary>ドッキング中に非アクティブタブとして畳まれていないか (従属ポップアップの追従判定用)</summary>
+        public bool isTabVisible => !_dockTabHidden;
+
         private readonly WindowResizeController _resize = new WindowResizeController();
 
         /// <summary>移動の永続化検知用。前フレームの矩形</summary>
