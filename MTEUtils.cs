@@ -233,6 +233,15 @@ namespace COM3D2.MotionTimelineEditor
 
         public static Vector3 mousePosition => mousePositionGetter();
 
+        /// <summary>マウス位置を GUI 座標系 (左上原点) で返す</summary>
+        public static Vector2 rawGuiPosition => new Vector2(mousePosition.x, Screen.height - mousePosition.y);
+
+        /// <summary>
+        /// 指定ウィンドウ以外の IMGUI ウィンドウがその座標を覆っているかの判定フック。
+        /// 既定は常に false (トラッカーを持たない環境では従来どおり自窓だけで判定する)
+        /// </summary>
+        public static Func<int, Vector2, bool> isOverOtherWindowChecker = (windowId, guiPos) => false;
+
         /// <summary>
         /// マウスカーソルが GUI 座標系のウィンドウ矩形上にあるか（OnGUI 外からも呼べる）。
         /// 描画中の要素に対する判定は GUIView.IsMouseOverRect を使うこと
