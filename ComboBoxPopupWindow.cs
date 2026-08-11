@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -16,8 +17,15 @@ namespace COM3D2.MotionTimelineEditor
         /// <summary>開いているコンボ。null なら閉じている</summary>
         private GUIComboBoxBase _comboBox;
 
-        /// <summary>ボタン座標をスクリーン座標へ直すための、コンボを開いたホストウィンドウ</summary>
+        /// <summary>コンボを開いたホストウィンドウ。表示状態の追従に使う</summary>
         private IGUIWindow _host;
+
+        /// <summary>
+        /// ボタン座標をスクリーン座標へ直すための、コンボを描いた GUI.Window の矩形取得。
+        /// 1 ウィンドウクラスが従属ウィンドウを併せ持つ場合、ホストの windowRect とは
+        /// 別の矩形が基準になるため差し替えられるようにしている
+        /// </summary>
+        private Func<Rect> _hostRectGetter;
 
         private readonly GUIView _view = new GUIView()
         {
@@ -29,7 +37,25 @@ namespace COM3D2.MotionTimelineEditor
         private Rect _popupRect;
 
         public int windowIndex { get; set; }
-        public bool isShowWnd { get; set; }
+
+        /// <summary>
+        /// 表示状態はポップアップの開閉と同義。
+        /// ウィンドウマネージャの入力ブロック判定がこれと windowRect を見るため、
+        /// 独自フラグを持たず開閉状態をそのまま返す。
+        /// true の指定は無視する（開くのは ProcessFocus 経由のみ）
+        /// </summary>
+        public bool isShowWnd
+        {
+            get => isOpen;
+            set
+            {
+                if (!value)
+                {
+                    Close();
+                }
+            }
+        }
+
         public Rect windowRect
         {
             get => _popupRect;
@@ -42,6 +68,9 @@ namespace COM3D2.MotionTimelineEditor
 
         public bool isOpen => _comboBox != null;
 
+        /// <summary>指定ホストが開いたコンボのポップアップが出ているか</summary>
+        public bool IsOpenFor(IGUIWindow host) => _comboBox != null && _host == host;
+
         /// <summary>
         /// ホストの描画末尾から毎フレーム呼ぶ。ボタン押下で rootView へ登録された
         /// フォーカスをポップアップへ引き取る。開いているコンボのボタンを再クリック
@@ -49,6 +78,12 @@ namespace COM3D2.MotionTimelineEditor
         /// 閉じる操作はここで行う)
         /// </summary>
         public void ProcessFocus(GUIView rootView, IGUIWindow host)
+        {
+            ProcessFocus(rootView, host, () => host.windowRect);
+        }
+
+        /// <summary>コンボを描いた GUI.Window の矩形をホストと別に指定する版</summary>
+        public void ProcessFocus(GUIView rootView, IGUIWindow host, Func<Rect> hostRectGetter)
         {
             var comboBox = rootView.focusedComboBox;
             if (comboBox == null)
@@ -65,12 +100,13 @@ namespace COM3D2.MotionTimelineEditor
 
             _comboBox = comboBox;
             _host = host;
+            _hostRectGetter = hostRectGetter;
         }
 
         /// <summary>ボタンのスクリーンGUI座標の矩形。トグル判定と外側クリック判定に使う</summary>
         private Rect GetButtonScreenRect()
         {
-            var pos = _host.windowRect.position + _comboBox.buttonPos;
+            var pos = _hostRectGetter().position + _comboBox.buttonPos;
             return new Rect(pos.x, pos.y, _comboBox.buttonSize.x, _comboBox.buttonSize.y);
         }
 
@@ -143,6 +179,7 @@ namespace COM3D2.MotionTimelineEditor
         {
             _comboBox = null;
             _host = null;
+            _hostRectGetter = null;
         }
 
         public void Init()
