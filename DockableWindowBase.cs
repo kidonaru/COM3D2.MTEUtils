@@ -12,7 +12,7 @@ namespace COM3D2.MotionTimelineEditor
     /// 注意: ドッキング参加中は windowRect がホスト都合 (タブ同期・連結クランプ等) で
     /// setRect デリゲート経由で書き換わりうる契約である
     /// </summary>
-    public abstract class DockableWindowBase : IGUIWindow, IResizeCursorProvider
+    public abstract class DockableWindowBase : IGUIWindow, IResizeCursorProvider, ITabVisibleWindow
     {
         public static readonly int HEADER_HEIGHT = 26;
         public static readonly int FRAME = 4;
