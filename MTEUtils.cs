@@ -225,12 +225,21 @@ namespace COM3D2.MotionTimelineEditor
         }
 
         /// <summary>
+        /// スクリーン座標系のマウス位置の取得処理。
+        /// Input.mousePosition が変換済み座標を返す環境（RT への描画等）では
+        /// プラグイン側で生座標を返す関数に差し替える
+        /// </summary>
+        public static Func<Vector3> mousePositionGetter = () => Input.mousePosition;
+
+        public static Vector3 mousePosition => mousePositionGetter();
+
+        /// <summary>
         /// マウスカーソルが GUI 座標系のウィンドウ矩形上にあるか（OnGUI 外からも呼べる）。
         /// 描画中の要素に対する判定は GUIView.IsMouseOverRect を使うこと
         /// </summary>
         public static bool IsMouseOverWindowRect(Rect windowRect)
         {
-            var mousePosition = Input.mousePosition;
+            var mousePosition = MTEUtils.mousePosition;
             var guiY = Screen.height - mousePosition.y;
             return mousePosition.x > windowRect.x &&
                 mousePosition.x < windowRect.x + windowRect.width &&

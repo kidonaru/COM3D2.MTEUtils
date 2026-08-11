@@ -932,7 +932,7 @@ namespace COM3D2.MotionTimelineEditor
                 Event.current.button == 0)
             {
                 info.isDragging = true;
-                info.lastMousePos = Input.mousePosition;
+                info.lastMousePos = MTEUtils.mousePosition;
                 info.startPos = pos;
                 info.pos = pos;
                 onStart?.Invoke(info.pos);
@@ -950,13 +950,14 @@ namespace COM3D2.MotionTimelineEditor
 
             if (info.isDragging)
             {
-                var diff = Input.mousePosition - info.lastMousePos;
+                var mousePos = MTEUtils.mousePosition;
+                var diff = mousePos - info.lastMousePos;
                 diff.y = -diff.y;
                 if (diff.sqrMagnitude > 0)
                 {
                     info.pos += new Vector2(diff.x, diff.y);
                     onDragging?.Invoke(info.pos);
-                    info.lastMousePos = Input.mousePosition;
+                    info.lastMousePos = mousePos;
                 }
             }
         }
