@@ -11,6 +11,7 @@ namespace COM3D2.MotionTimelineEditor
         float keyRepeatTime { get; }
         bool useHSVColor { get; set; }
         Color windowHoverColor { get; }
+        Color accentColor { get; }
         Texture2D changeIcon { get; }
         Texture2D favoriteOffIcon { get; }
         Texture2D favoriteOnIcon { get; }
@@ -22,6 +23,9 @@ namespace COM3D2.MotionTimelineEditor
         public virtual float keyRepeatTime { get; } = 1f / 30f;
         public virtual bool useHSVColor { get; set; } = false;
         public virtual Color windowHoverColor { get; } = new Color(48 / 255f, 48 / 255f, 48 / 255f, 224 / 255f);
+        // トグル・ボタン等の有効状態を示すアクセント色
+        // (EditorSubWindow.ACCENT_COLOR と値を合わせてある。変更時は両方更新すること)
+        public virtual Color accentColor { get; } = new Color(0.3f, 0.6f, 1f, 1f);
         public virtual Texture2D changeIcon => GUIView.texWhite;
         public virtual Texture2D favoriteOffIcon { get; }
         public virtual Texture2D favoriteOnIcon { get; }
@@ -972,7 +976,7 @@ namespace COM3D2.MotionTimelineEditor
         {
             var drawRect = GetDrawRect(width, height);
             BeginEnabled(enabled);
-            BeginColor(value ? Color.green : Color.white);
+            BeginColor(value ? option.accentColor : Color.white);
             bool newValue = GUI.Toggle(drawRect, value, label, gsToggle);
             EndColor();
             EndEnabled();
@@ -1713,7 +1717,7 @@ namespace COM3D2.MotionTimelineEditor
 
             for (int i = 0; i < items.Count; i++)
             {
-                var color = i == currentIndex ? Color.green : Color.white;
+                var color = i == currentIndex ? option.accentColor : Color.white;
                 var name = getName(items[i], i);
                 var enabled = getEnabled != null ? getEnabled(items[i], i) : true;
                 if (DrawButton(name, buttonWidth, buttonHeight, enabled, color))
@@ -1927,7 +1931,7 @@ namespace COM3D2.MotionTimelineEditor
 
             if (content.isSelected)
             {
-                DrawRectInternal(drawRect, Color.green, 2);
+                DrawRectInternal(drawRect, option.accentColor, 2);
             }
 
             bool isMouseOver = drawRect.Contains(Event.current.mousePosition);
@@ -2380,7 +2384,7 @@ namespace COM3D2.MotionTimelineEditor
                 // 編集ウィンドウをボタンに被らない位置へ出すため、描画前に矩形を控えておく
                 var buttonRect = GetDrawRect(45, 20);
 
-                if (DrawButton("編集", 45, 20, true, isEditing ? Color.green : (Color?)null))
+                if (DrawButton("編集", 45, 20, true, isEditing ? option.accentColor : (Color?)null))
                 {
                     if (isEditing)
                     {
@@ -2447,7 +2451,7 @@ namespace COM3D2.MotionTimelineEditor
                 // 編集ウィンドウをボタンに被らない位置へ出すため、描画前に矩形を控えておく
                 var buttonRect = GetDrawRect(45, 20);
 
-                if (DrawButton("編集", 45, 20, true, isEditing ? Color.green : (Color?)null))
+                if (DrawButton("編集", 45, 20, true, isEditing ? option.accentColor : (Color?)null))
                 {
                     if (isEditing)
                     {
@@ -2493,7 +2497,7 @@ namespace COM3D2.MotionTimelineEditor
                         subView.BeginLayout(LayoutDirection.Horizontal);
                     }
 
-                    var color = currentTab.Equals(tabType) ? Color.green : Color.white;
+                    var color = currentTab.Equals(tabType) ? option.accentColor : Color.white;
                     if (subView.DrawButton(tabType.ToString(), width, height, true, color))
                     {
                         currentTab = tabType;

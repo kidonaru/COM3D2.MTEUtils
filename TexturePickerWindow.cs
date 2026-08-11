@@ -446,7 +446,7 @@ namespace COM3D2.MotionTimelineEditor
             {
                 DrawThumbnail(view, thumbnail);
 
-                if (view.DrawButton(label, rowWidth - THUMB_SIZE - THUMB_MARGIN, ROW_HEIGHT, true, isCurrent ? Color.green : (Color?)null))
+                if (view.DrawButton(label, rowWidth - THUMB_SIZE - THUMB_MARGIN, ROW_HEIGHT, true, isCurrent ? GUIView.option.accentColor : (Color?)null))
                 {
                     _currentPath = selectPath;
                     _onSelected?.Invoke(selectPath ?? "");
