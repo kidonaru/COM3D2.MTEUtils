@@ -306,7 +306,9 @@ namespace COM3D2.MotionTimelineEditor
 
             /// <summary>
             /// 画面サイズ変更後にギアメニューを右上へ再配置する。
-            /// バニラはリサイズ時に Base を再配置しないため、プラグイン側から呼び出す
+            /// バニラはリサイズ時に Base を再配置しないため、プラグイン側から呼び出す。
+            /// onReposition の所有権がより新しいバージョンの他プラグインにある場合は
+            /// その実装に委譲される (既存のバージョン調停規約に従う)
             /// </summary>
             public static void OnScreenSizeChanged()
             {
