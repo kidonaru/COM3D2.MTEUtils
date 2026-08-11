@@ -40,9 +40,9 @@ namespace COM3D2.MotionTimelineEditor
             static string Name_ = "CM3D2.GearMenu.Buttons";
 
             // バージョン文字列の実体。改善、改造した場合は文字列の辞書順がより大きい値に更新すること
-            // （レイアウトに非アクティブボタン除外を加えたため、本家/KYM の 0.0.2.0 から上げている。
-            //  辞書順比較のため各桁は 1 桁を維持すること）
-            static string Version_ = Name_ + " 0.0.2.1";
+            // （レイアウトに非アクティブボタン除外・画面リサイズ追従を加えたため、
+            //  本家/KYM の 0.0.2.0 から上げている。辞書順比較のため各桁は 1 桁を維持すること）
+            static string Version_ = Name_ + " 0.0.2.2";
 
             /// <summary>
             /// 識別名
@@ -304,6 +304,18 @@ namespace COM3D2.MotionTimelineEditor
                 return t == null ? null : t.gameObject;
             }
 
+            /// <summary>
+            /// 画面サイズ変更後にギアメニューを右上へ再配置する。
+            /// バニラはリサイズ時に Base を再配置しないため、プラグイン側から呼び出す
+            /// </summary>
+            public static void OnScreenSizeChanged()
+            {
+                if (IsReady)
+                {
+                    Reposition();
+                }
+            }
+
             // グリッド内のボタンを再配置
             static void Reposition()
             {
@@ -467,8 +479,21 @@ namespace COM3D2.MotionTimelineEditor
                     b.width = (int)(spriteWidthMargin + g.cellWidth * spriteItemX);
                     b.height = (int)(spriteHeightMargin + g.cellHeight * spriteItemY + 2f);
 
-                    // (946,502) はもとの Base の localPosition の値
-                    Base.transform.localPosition = new Vector3(946.0f, 502.0f + pivotOffsetY, 0.0f);
+                    // もとの Base の localPosition (946,502) は 1920x1080 の画面右上からの
+                    // マージン (14,38) を意味する。UIRoot は Constrained (fitWidth/fitHeight) のため
+                    // 縦長ウィンドウでは上端のローカル Y が 540 を超える。固定値ではなく
+                    // 現在の画面実寸から右上位置を計算して追従させる
+                    float halfW = Screen.width * pixelSizeAdjustment * 0.5f;
+                    float halfH = Screen.height * pixelSizeAdjustment * 0.5f;
+                    Base.transform.localPosition = new Vector3(halfW - 14.0f, halfH - 38.0f + pivotOffsetY, 0.0f);
+
+                    // ギアボタン本体は Base の子ではなく SysShortcut 直下の別オブジェクト
+                    // (元位置 (912,502) = 右上からのマージン (48,38)) なので、同様に追従させる
+                    var gear = SysShortcut.transform.Find("Gear");
+                    if (gear != null)
+                    {
+                        gear.localPosition = new Vector3(halfW - 48.0f, halfH - 38.0f, 0.0f);
+                    }
 
                     Grid.transform.localPosition = new Vector3(
                         -2.0f + (-spriteItemX - 1 + spriteItemY - 1) * g.cellWidth,
