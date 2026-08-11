@@ -1594,38 +1594,9 @@ namespace COM3D2.MotionTimelineEditor
             focusedComboBox = comboBox;
         }
 
-        public bool IsComboBoxFocused()
-        {
-            return focusedComboBox != null;
-        }
-
         public void CancelFocusComboBox()
         {
             focusedComboBox = null;
-        }
-
-        private GUIView _comboBoxSubView = null;
-
-        public void DrawComboBox()
-        {
-            SetEnabled(true);
-
-            if (focusedComboBox != null)
-            {
-                if (_comboBoxSubView == null)
-                {
-                    _comboBoxSubView = new GUIView()
-                    {
-                        padding = Vector2.zero,
-                        margin = 0,
-                    };
-                }
-
-                _comboBoxSubView.parent = this;
-                _comboBoxSubView.Init(_viewRect);
-
-                focusedComboBox.DrawContent(_comboBoxSubView);
-            }
         }
 
         public int DrawListView<T>(

@@ -27,7 +27,11 @@ namespace COM3D2.MotionTimelineEditor
 
         public abstract void DrawTextureButton(GUIView view);
 
-        public abstract void DrawContent(GUIView view);
+        /// <summary>ポップアップウィンドウのサイズ。項目数が少なければ高さを詰める</summary>
+        public abstract Vector2 GetPopupSize();
+
+        /// <summary>ポップアップの中身を描く。選択が確定したら true を返す</summary>
+        public abstract bool DrawPopupContent(GUIView view);
     }
 
     public class GUIComboBox<T> : GUIComboBoxBase
@@ -223,74 +227,27 @@ namespace COM3D2.MotionTimelineEditor
             view.NextElement(subViewRect);
         }
 
-        public override void DrawContent(GUIView view)
+        public override Vector2 GetPopupSize()
         {
-            float width = this.contentSize.x + 20; // スクロールバー分広げる
-            float height = this.contentSize.y;
-            float windowWidth = view.viewRect.width;
-            float windowHeight = view.viewRect.height;
-            float buttonHeight =  this.buttonSize.y;
+            var width = this.contentSize.x + 20; // スクロールバー分広げる
+            var height = Mathf.Min(
+                this.contentSize.y,
+                this.items.Count * this.buttonSize.y);
+            // 空リストでも枠が潰れないよう 1 行分は確保する
+            height = Mathf.Max(height, this.buttonSize.y);
+            return new Vector2(width, height);
+        }
 
-            var savedMergin = view.margin;
-            var savedPadding = view.padding;
-
-            view.margin = 0;
-            view.padding = Vector2.zero;
-
-            var windowRect = new Rect(0, 0, windowWidth, windowHeight);
-            GUI.Box(windowRect, "", GUIView.gsMask);
-
-            var savedPos = view.currentPos;
-            var savedMaxPos = view.layoutMaxPos;
-
-            view.currentPos = buttonPos;
-            view.currentPos.y += buttonSize.y;
-
-            if (height > this.items.Count * buttonHeight)
-            {
-                height = this.items.Count * buttonHeight;
-            }
-
-            if (view.currentPos.y + height > windowHeight)
-            {
-                view.currentPos.y = buttonPos.y - height;
-            }
-            if (view.currentPos.y < 0)
-            {
-                var diff = -view.currentPos.y;
-                height -= diff;
-                view.currentPos.y = 0;
-            }
-            if (view.currentPos.x + width > windowWidth)
-            {
-                view.currentPos.x = windowWidth - width;
-            }
-
+        public override bool DrawPopupContent(GUIView view)
+        {
             var selectedIndex = view.DrawListView(
                 this.items,
                 this.getName,
                 this.getEnabled,
-                width,
-                height,
+                view.viewRect.width,
+                view.viewRect.height,
                 this.currentIndex,
-                buttonHeight);
-
-            if (selectedIndex >= 0)
-            {
-                view.CancelFocusComboBox();
-            }
-
-            if (Event.current.type == EventType.MouseUp &&
-                Event.current.button == 0)
-            {
-                view.CancelFocusComboBox();
-            }
-
-            view.currentPos = savedPos;
-            view.layoutMaxPos = savedMaxPos;
-
-            view.margin = savedMergin;
-            view.padding = savedPadding;
+                this.buttonSize.y);
 
             if (selectedIndex >= 0 && selectedIndex < this.items.Count)
             {
@@ -299,7 +256,9 @@ namespace COM3D2.MotionTimelineEditor
                 {
                     this.onSelected(this.items[this.currentIndex], this.currentIndex);
                 }
+                return true;
             }
+            return false;
         }
     }
 }
