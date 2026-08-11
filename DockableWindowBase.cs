@@ -12,14 +12,13 @@ namespace COM3D2.MotionTimelineEditor
     /// 注意: ドッキング参加中は windowRect がホスト都合 (タブ同期・連結クランプ等) で
     /// setRect デリゲート経由で書き換わりうる契約である
     /// </summary>
-    public abstract class DockableWindowBase : IGUIWindow
+    public abstract class DockableWindowBase : IGUIWindow, IResizeCursorProvider
     {
         public static readonly int HEADER_HEIGHT = 26;
         public static readonly int FRAME = 4;
         public static readonly int CLOSE_BUTTON_WIDTH = 20;
         public static readonly int CLOSE_BUTTON_HEIGHT = 16;
         public static readonly int CLOSE_BUTTON_MARGIN = 2;
-        public static readonly int RESIZE_HANDLE_SIZE = 16;
 
         protected abstract int windowId { get; }
         protected abstract string windowTitle { get; }
@@ -85,9 +84,16 @@ namespace COM3D2.MotionTimelineEditor
         /// <summary>非アクティブタブとしてホストから描画停止を指示されているか</summary>
         private bool _dockTabHidden;
 
-        private bool _isResizing;
-        private Vector2 _resizeStartMouse;
-        private Rect _resizeStartRect;
+        private readonly WindowResizeController _resize = new WindowResizeController();
+
+        /// <summary>移動の永続化検知用。前フレームの矩形</summary>
+        private Rect _lastStoredRect;
+
+        public bool isResizing => _resize.isResizing;
+
+        /// <summary>ホバー中の望ましいカーソル種別。ウィンドウ管理側が仲裁して適用する</summary>
+        public ResizeCursor.Kind desiredCursorKind =>
+            _resize.GetCursorKind(_windowRect, _isShowWnd && !_dockTabHidden, windowId);
 
         public Rect contentRect => new Rect(
             FRAME, HEADER_HEIGHT,
@@ -105,6 +111,7 @@ namespace COM3D2.MotionTimelineEditor
                 y >= 0 ? y : (Screen.height - height) / 2,
                 width,
                 height);
+            _lastStoredRect = _windowRect;
         }
 
         private void RegisterDocking()
@@ -164,25 +171,16 @@ namespace COM3D2.MotionTimelineEditor
                 CLOSE_BUTTON_HEIGHT);
             if (GUI.Button(closeRect, "x"))
             {
-                isShowWnd = false;
+                Close();
                 return;
             }
 
             var e = Event.current;
 
-            // 右下角のリサイズ開始判定
-            var resizeRect = new Rect(
-                _windowRect.width - RESIZE_HANDLE_SIZE,
-                _windowRect.height - RESIZE_HANDLE_SIZE,
-                RESIZE_HANDLE_SIZE,
-                RESIZE_HANDLE_SIZE);
-            if (e.type == EventType.MouseDown && e.button == 0 && resizeRect.Contains(e.mousePosition))
+            // リサイズ開始判定 (4辺+4隅)。開始したらイベントを消費して移動と競合させない
+            if (e.type == EventType.MouseDown && e.button == 0 &&
+                _resize.TryBegin(_windowRect, e.mousePosition))
             {
-                _isResizing = true;
-                // GUI.Window コールバック内では GUIUtility.GUIToScreenPoint がスクリーン座標を
-                // 正しく返さないため、Update() 側と同じ Input.mousePosition ベースの変換に揃える
-                _resizeStartMouse = new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y);
-                _resizeStartRect = _windowRect;
                 e.Use();
             }
 
@@ -194,7 +192,7 @@ namespace COM3D2.MotionTimelineEditor
                 DockingClient.NotifyHeaderMouseDown(_dockHandle);
             }
 
-            if (!_isResizing)
+            if (!_resize.isResizing)
             {
                 GUI.DragWindow(new Rect(0, 0, _windowRect.width, HEADER_HEIGHT));
             }
@@ -202,28 +200,36 @@ namespace COM3D2.MotionTimelineEditor
 
         public virtual void Update()
         {
-            if (_isResizing)
+            if (_resize.UpdateResize(ref _windowRect, minWidth, minHeight))
             {
-                if (!Input.GetMouseButton(0))
-                {
-                    _isResizing = false;
-                    StorePlacement(
-                        (int)_windowRect.x, (int)_windowRect.y,
-                        (int)_windowRect.width, (int)_windowRect.height);
-                }
-                else
-                {
-                    var mouse = new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y);
-                    _windowRect.width = Mathf.Max(
-                        minWidth, _resizeStartRect.width + (mouse.x - _resizeStartMouse.x));
-                    _windowRect.height = Mathf.Max(
-                        minHeight, _resizeStartRect.height + (mouse.y - _resizeStartMouse.y));
-                }
+                OnResizeEnd();
+                StorePlacementInternal();
             }
+
+            // 移動でも配置を永続化する。config への書き込みと dirty 設定だけで、
+            // ファイル保存は ConfigManager 側 (マウスアップ時) に委ねられる
+            if (_windowRect != _lastStoredRect)
+            {
+                StorePlacementInternal();
+            }
+        }
+
+        private void StorePlacementInternal()
+        {
+            _lastStoredRect = _windowRect;
+            StorePlacement(
+                (int)_windowRect.x, (int)_windowRect.y,
+                (int)_windowRect.width, (int)_windowRect.height);
+        }
+
+        /// <summary>リサイズ確定 (マウスアップ) 時に呼ばれる。ビュー再構築などに使う</summary>
+        protected virtual void OnResizeEnd()
+        {
         }
 
         public virtual void Close()
         {
+            _resize.Cancel();
             isShowWnd = false;
         }
 
