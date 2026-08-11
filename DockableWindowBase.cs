@@ -92,6 +92,10 @@ namespace COM3D2.MotionTimelineEditor
         /// <summary>移動の永続化検知用。前フレームの矩形</summary>
         private Rect _lastStoredRect;
 
+        /// <summary>OnSizeChanged 通知用。前フレームの実寸</summary>
+        private int _lastWidth;
+        private int _lastHeight;
+
         public bool isResizing => _resize.isResizing;
 
         /// <summary>ホバー中の望ましいカーソル種別。ウィンドウ管理側が仲裁して適用する</summary>
@@ -115,6 +119,17 @@ namespace COM3D2.MotionTimelineEditor
                 width,
                 height);
             _lastStoredRect = _windowRect;
+            _lastWidth = (int)_windowRect.width;
+            _lastHeight = (int)_windowRect.height;
+        }
+
+        /// <summary>
+        /// ウィンドウ矩形を画面内へ収める。
+        /// windowRect はプロパティで ref 渡しできないため、派生側の重複を避けてここに置く
+        /// </summary>
+        protected void AdjustPosition()
+        {
+            MTEUtils.AdjustWindowPosition(ref _windowRect);
         }
 
         private void RegisterDocking()
@@ -160,6 +175,9 @@ namespace COM3D2.MotionTimelineEditor
 
             _windowRect.x = Mathf.Clamp(_windowRect.x, -_windowRect.width + 100, Screen.width - 100);
             _windowRect.y = Mathf.Clamp(_windowRect.y, 0, Screen.height - HEADER_HEIGHT);
+
+            // ウィンドウ上のホイール操作をゲーム側へ流さない
+            MTEUtils.ResetInputOnScroll(_windowRect);
         }
 
         private void DrawWindowInternal(int id)
@@ -215,6 +233,14 @@ namespace COM3D2.MotionTimelineEditor
             {
                 StorePlacementInternal();
             }
+
+            // リサイズやドッキングのタブ同期で実寸が変わったら派生側へ通知する
+            if (_lastWidth != (int)_windowRect.width || _lastHeight != (int)_windowRect.height)
+            {
+                _lastWidth = (int)_windowRect.width;
+                _lastHeight = (int)_windowRect.height;
+                OnSizeChanged(_lastWidth, _lastHeight);
+            }
         }
 
         private void StorePlacementInternal()
@@ -230,6 +256,11 @@ namespace COM3D2.MotionTimelineEditor
         {
         }
 
+        /// <summary>ウィンドウの実寸が変わったときに呼ばれる。ビュー再構築に使う</summary>
+        protected virtual void OnSizeChanged(int width, int height)
+        {
+        }
+
         public virtual void Close()
         {
             _resize.Cancel();
@@ -238,10 +269,12 @@ namespace COM3D2.MotionTimelineEditor
 
         public virtual void OnLoad()
         {
+            AdjustPosition();
         }
 
         public virtual void OnScreenSizeChanged()
         {
+            AdjustPosition();
         }
 
         public virtual void OnChangedSceneLevel(Scene scene, LoadSceneMode sceneMode)
