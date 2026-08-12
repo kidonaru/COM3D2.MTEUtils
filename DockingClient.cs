@@ -23,12 +23,32 @@ namespace COM3D2.MotionTimelineEditor
         private static Action<object> _notifyHeaderMouseDown;
         private static bool _initialized;
 
+        // スナップ/コネクト系 (ホストが旧バージョンだと存在しない)。
+        // 1 つでも欠けていたら機能ごと無効にする一括検出
+        // (「スナップは効くがボタンは出ない」等の中間状態を作らない)
+        private static Action<object> _enableConnect;
+        private static Action<object> _notifyDragMouseDown;
+        private static Func<object, bool> _isSnapDragging;
+        private static Func<object, bool> _hasAdjacent;
+        private static Func<object, bool> _isConnected;
+        private static Action<object> _toggleConnect;
+
         public static bool isAvailable
         {
             get
             {
                 Initialize();
                 return _register != null;
+            }
+        }
+
+        /// <summary>スナップ/コネクト連携が使えるか (ホストが対応バージョンか)</summary>
+        public static bool isConnectAvailable
+        {
+            get
+            {
+                Initialize();
+                return _enableConnect != null;
             }
         }
 
@@ -69,6 +89,31 @@ namespace COM3D2.MotionTimelineEditor
                     typeof(Action<object>), unregister);
                 _notifyHeaderMouseDown = (Action<object>)Delegate.CreateDelegate(
                     typeof(Action<object>), notify);
+
+                // スナップ/コネクト系は後発 API のため任意。旧ホストでは見つからないが
+                // タブドッキングは従来通り使えるので警告は出さない
+                var enableConnect = type.GetMethod("EnableConnect", BindingFlags.Public | BindingFlags.Static);
+                var notifyDrag = type.GetMethod("NotifyDragMouseDown", BindingFlags.Public | BindingFlags.Static);
+                var isSnapDragging = type.GetMethod("IsSnapDragging", BindingFlags.Public | BindingFlags.Static);
+                var hasAdjacent = type.GetMethod("HasAdjacent", BindingFlags.Public | BindingFlags.Static);
+                var isConnected = type.GetMethod("IsConnected", BindingFlags.Public | BindingFlags.Static);
+                var toggleConnect = type.GetMethod("ToggleConnect", BindingFlags.Public | BindingFlags.Static);
+                if (enableConnect != null && notifyDrag != null && isSnapDragging != null &&
+                    hasAdjacent != null && isConnected != null && toggleConnect != null)
+                {
+                    _enableConnect = (Action<object>)Delegate.CreateDelegate(
+                        typeof(Action<object>), enableConnect);
+                    _notifyDragMouseDown = (Action<object>)Delegate.CreateDelegate(
+                        typeof(Action<object>), notifyDrag);
+                    _isSnapDragging = (Func<object, bool>)Delegate.CreateDelegate(
+                        typeof(Func<object, bool>), isSnapDragging);
+                    _hasAdjacent = (Func<object, bool>)Delegate.CreateDelegate(
+                        typeof(Func<object, bool>), hasAdjacent);
+                    _isConnected = (Func<object, bool>)Delegate.CreateDelegate(
+                        typeof(Func<object, bool>), isConnected);
+                    _toggleConnect = (Action<object>)Delegate.CreateDelegate(
+                        typeof(Action<object>), toggleConnect);
+                }
             }
             catch (Exception e)
             {
@@ -77,6 +122,12 @@ namespace COM3D2.MotionTimelineEditor
                 _register = null;
                 _unregister = null;
                 _notifyHeaderMouseDown = null;
+                _enableConnect = null;
+                _notifyDragMouseDown = null;
+                _isSnapDragging = null;
+                _hasAdjacent = null;
+                _isConnected = null;
+                _toggleConnect = null;
             }
         }
 
@@ -133,6 +184,45 @@ namespace COM3D2.MotionTimelineEditor
             if (handle != null && isAvailable)
             {
                 _notifyHeaderMouseDown(handle);
+            }
+        }
+
+        public static void EnableConnect(object handle)
+        {
+            if (handle != null && isConnectAvailable)
+            {
+                _enableConnect(handle);
+            }
+        }
+
+        public static void NotifyDragMouseDown(object handle)
+        {
+            if (handle != null && isConnectAvailable)
+            {
+                _notifyDragMouseDown(handle);
+            }
+        }
+
+        public static bool IsSnapDragging(object handle)
+        {
+            return handle != null && isConnectAvailable && _isSnapDragging(handle);
+        }
+
+        public static bool HasAdjacent(object handle)
+        {
+            return handle != null && isConnectAvailable && _hasAdjacent(handle);
+        }
+
+        public static bool IsConnected(object handle)
+        {
+            return handle != null && isConnectAvailable && _isConnected(handle);
+        }
+
+        public static void ToggleConnect(object handle)
+        {
+            if (handle != null && isConnectAvailable)
+            {
+                _toggleConnect(handle);
             }
         }
     }
