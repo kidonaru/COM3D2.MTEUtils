@@ -12,7 +12,7 @@ namespace COM3D2.MotionTimelineEditor
     /// </summary>
     public class ComboBoxPopupWindow : IGUIWindow
     {
-        public static readonly int WINDOW_ID = 923483;
+        public static readonly int WINDOW_ID = 8903361;
 
         /// <summary>開いているコンボ。null なら閉じている</summary>
         private GUIComboBoxBase _comboBox;
