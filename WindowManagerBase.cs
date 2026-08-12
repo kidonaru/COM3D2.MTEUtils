@@ -42,6 +42,9 @@ namespace COM3D2.MotionTimelineEditor
 
         public virtual void Update()
         {
+            // 窓上判定より前に生座標ブリッジを解決しておく (未解決なら再試行される)
+            InputRemapperClient.Update();
+
             CheckScreenSizeChanged();
 
             foreach (var window in windows)
