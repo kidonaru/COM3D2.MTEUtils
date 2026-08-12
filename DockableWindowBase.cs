@@ -19,6 +19,9 @@ namespace COM3D2.MotionTimelineEditor
         public static readonly int CLOSE_BUTTON_WIDTH = 20;
         public static readonly int CLOSE_BUTTON_HEIGHT = 16;
         public static readonly int CLOSE_BUTTON_MARGIN = 2;
+        public static readonly int CONNECT_BUTTON_WIDTH = 20;
+        /// <summary>連結中表示のアクセント色。ホスト (EditorSubWindow.ACCENT_COLOR) と揃えること</summary>
+        public static readonly Color CONNECT_ACCENT_COLOR = Color.cyan;
 
         protected abstract int windowId { get; }
         protected abstract string windowTitle { get; }
@@ -149,6 +152,10 @@ namespace COM3D2.MotionTimelineEditor
                     _dockTabHidden = !visible;
                     OnTabVisibleChanged(visible);
                 });
+
+            // この基底はスナップ/コネクト協調 (DragWindow 抑止・個別クランプ抑止) を実装済みのため、
+            // コネクト候補になることをホストへ宣言する
+            DockingClient.EnableConnect(_dockHandle);
         }
 
         private void UnregisterDocking()
@@ -173,8 +180,14 @@ namespace COM3D2.MotionTimelineEditor
             // 加入状態はホスト側にしかない。オーバーレイが不透明に被さるため空にしなくても実害はない
             _windowRect = GUI.Window(windowId, _windowRect, DrawWindowInternal, windowTitle, GUIView.gsWin);
 
-            _windowRect.x = Mathf.Clamp(_windowRect.x, -_windowRect.width + 100, Screen.width - 100);
-            _windowRect.y = Mathf.Clamp(_windowRect.y, 0, Screen.height - HEADER_HEIGHT);
+            // 画面外へ出ないようクランプ。
+            // 連結中はメンバー間のオフセットを壊さないよう個別クランプせず、
+            // ホスト側が群のバウンディングボックスでクランプする (内部窓と同じ流儀)
+            if (!DockingClient.IsConnected(_dockHandle))
+            {
+                _windowRect.x = Mathf.Clamp(_windowRect.x, -_windowRect.width + 100, Screen.width - 100);
+                _windowRect.y = Mathf.Clamp(_windowRect.y, 0, Screen.height - HEADER_HEIGHT);
+            }
 
             // ウィンドウ上のホイール操作をゲーム側へ流さない
             MTEUtils.ResetInputOnScroll(_windowRect);
@@ -196,6 +209,27 @@ namespace COM3D2.MotionTimelineEditor
                 return;
             }
 
+            // コネクトボタン (閉じるボタンの左隣)。見た目・条件は内部窓と揃える
+            if (DockingClient.isConnectAvailable &&
+                (DockingClient.IsConnected(_dockHandle) || DockingClient.HasAdjacent(_dockHandle)))
+            {
+                var connectRect = new Rect(
+                    closeRect.x - CONNECT_BUTTON_WIDTH - CLOSE_BUTTON_MARGIN,
+                    closeRect.y,
+                    CONNECT_BUTTON_WIDTH,
+                    CLOSE_BUTTON_HEIGHT);
+
+                var isConnected = DockingClient.IsConnected(_dockHandle);
+                var oldColor = GUI.color;
+                // 連結中はアクセントカラーで塗って状態を示す
+                GUI.color = isConnected ? CONNECT_ACCENT_COLOR : Color.white;
+                if (GUI.Button(connectRect, isConnected ? "◆" : "◇"))
+                {
+                    DockingClient.ToggleConnect(_dockHandle);
+                }
+                GUI.color = oldColor;
+            }
+
             var e = Event.current;
 
             // リサイズ開始判定 (4辺+4隅)。開始したらイベントを消費して移動と競合させない
@@ -205,24 +239,44 @@ namespace COM3D2.MotionTimelineEditor
                 e.Use();
             }
 
-            // ヘッダー左押下をドッキング判定の起点としてホストへ通知する。
+            // ヘッダー左押下をドッキング判定とドラッグスナップ追跡の起点としてホストへ通知する。
             // イベントは消費せず、そのまま GUI.DragWindow の移動に使わせる
             if (e.type == EventType.MouseDown && e.button == 0 &&
                 e.mousePosition.y <= HEADER_HEIGHT && !closeRect.Contains(e.mousePosition))
             {
                 DockingClient.NotifyHeaderMouseDown(_dockHandle);
+                DockingClient.NotifyDragMouseDown(_dockHandle);
             }
 
-            if (!_resize.isResizing)
+            // コントロールが押下を処理すると e.Use() で消費されるため、
+            // この時点で未消費の MouseDown は「空き領域」への押下。
+            // 空き領域ドラッグもドラッグスナップの起点にする (内部窓と同じ流儀)
+            if (isWholeWindowDraggable &&
+                e.type == EventType.MouseDown && e.button == 0 &&
+                e.mousePosition.y > HEADER_HEIGHT)
             {
-                if (isWholeWindowDraggable)
-                {
-                    GUI.DragWindow();
-                }
-                else
-                {
-                    GUI.DragWindow(new Rect(0, 0, _windowRect.width, HEADER_HEIGHT));
-                }
+                DockingClient.NotifyDragMouseDown(_dockHandle);
+            }
+
+            if (_resize.isResizing)
+            {
+                return;
+            }
+
+            // 吸着中はマウス追従位置と吸着位置がフレームごとに行き来してばたつくため、
+            // GUI.DragWindow を呼ばずホストの絶対配置だけに任せる (内部窓と同じ流儀)
+            if (DockingClient.IsSnapDragging(_dockHandle))
+            {
+                return;
+            }
+
+            if (isWholeWindowDraggable)
+            {
+                GUI.DragWindow();
+            }
+            else
+            {
+                GUI.DragWindow(new Rect(0, 0, _windowRect.width, HEADER_HEIGHT));
             }
         }
 
