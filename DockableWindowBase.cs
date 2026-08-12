@@ -8,7 +8,8 @@ namespace COM3D2.MotionTimelineEditor
     /// EditorWindow プラグインが存在すれば DockingClient 経由でドッキングへ参加し、
     /// 存在しない環境では独立ウィンドウとして完結して動作する。
     /// ヘッダー高さ等の寸法はホスト (EditorSubWindow) と揃えること
-    /// (ホスト描画のタブバーがヘッダーへぴったり被さる前提のため)。
+    /// (グループ加入中はホストが push したタブ状態を自前ヘッダーへ描くため、
+    /// 内部窓とタブ列の見た目・位置が揃っている必要がある)。
     /// 注意: ドッキング参加中は windowRect がホスト都合 (タブ同期・連結クランプ等) で
     /// setRect デリゲート経由で書き換わりうる契約である
     /// </summary>
@@ -87,6 +88,10 @@ namespace COM3D2.MotionTimelineEditor
         /// <summary>非アクティブタブとしてホストから描画停止を指示されているか</summary>
         private bool _dockTabHidden;
 
+        /// <summary>ホストから push されたタブバー状態。null はグループ非加入</summary>
+        private string[] _tabTitles;
+        private int _tabActiveIndex = -1;
+
         /// <summary>ドッキング中に非アクティブタブとして畳まれていないか (従属ポップアップの追従判定用)</summary>
         public bool isTabVisible => !_dockTabHidden;
 
@@ -156,6 +161,13 @@ namespace COM3D2.MotionTimelineEditor
             // この基底はスナップ/コネクト協調 (DragWindow 抑止・個別クランプ抑止) を実装済みのため、
             // コネクト候補になることをホストへ宣言する
             DockingClient.EnableConnect(_dockHandle);
+
+            // タブグループ加入中は自前ヘッダーへタブバーを描くため、状態 push を受け取る
+            DockingClient.EnableTabBar(_dockHandle, (titles, activeIndex) =>
+            {
+                _tabTitles = titles;
+                _tabActiveIndex = activeIndex;
+            });
         }
 
         private void UnregisterDocking()
@@ -167,6 +179,8 @@ namespace COM3D2.MotionTimelineEditor
             DockingClient.Unregister(_dockHandle);
             _dockHandle = null;
             _dockTabHidden = false;
+            _tabTitles = null;
+            _tabActiveIndex = -1;
         }
 
         public virtual void OnGUI()
@@ -176,9 +190,9 @@ namespace COM3D2.MotionTimelineEditor
                 return;
             }
 
-            // グループ加入中はホストのオーバーレイがタブバーを被せるためタイトルを空にしたいが、
-            // 加入状態はホスト側にしかない。オーバーレイが不透明に被さるため空にしなくても実害はない
-            _windowRect = GUI.Window(windowId, _windowRect, DrawWindowInternal, windowTitle, GUIView.gsWin);
+            // グループ加入中はタブバーを自前描画するのでタイトルは空にする
+            var title = _tabTitles != null ? "" : windowTitle;
+            _windowRect = GUI.Window(windowId, _windowRect, DrawWindowInternal, title, GUIView.gsWin);
 
             // 画面外へ出ないようクランプ。
             // 連結中はメンバー間のオフセットを壊さないよう個別クランプせず、
@@ -195,7 +209,17 @@ namespace COM3D2.MotionTimelineEditor
 
         private void DrawWindowInternal(int id)
         {
+            // ボタンの有無でタブ列の使える幅が変わるため、描画前に一度だけ判定する
+            var isConnected = DockingClient.IsConnected(_dockHandle);
+            var showConnectButton = DockingClient.isConnectAvailable &&
+                (isConnected || DockingClient.HasAdjacent(_dockHandle));
+
             DrawContent();
+
+            if (_tabTitles != null)
+            {
+                DrawTabBar(showConnectButton);
+            }
 
             // 閉じるボタン (ヘッダー右端)
             var closeRect = new Rect(
@@ -203,7 +227,7 @@ namespace COM3D2.MotionTimelineEditor
                 (HEADER_HEIGHT - CLOSE_BUTTON_HEIGHT) * 0.5f,
                 CLOSE_BUTTON_WIDTH,
                 CLOSE_BUTTON_HEIGHT);
-            if (!DrawHeaderButtons(closeRect))
+            if (!DrawHeaderButtons(closeRect, showConnectButton, isConnected))
             {
                 // 閉じられたウィンドウには以降の入力判定を走らせない
                 return;
@@ -212,11 +236,28 @@ namespace COM3D2.MotionTimelineEditor
             HandleDragInput(closeRect);
         }
 
+        /// <summary>グループ時のタブ列。構成・見た目は内部窓 (EditorSubWindow.DrawTabBar) と揃える</summary>
+        private void DrawTabBar(bool showConnectButton)
+        {
+            // タブ列がヘッダー右のボタンへ食い込まないよう、利用可能幅を先に確定する
+            var available = _windowRect.width - FRAME * 2
+                - (CLOSE_BUTTON_WIDTH + CLOSE_BUTTON_MARGIN * 2);
+            if (showConnectButton)
+            {
+                available -= CONNECT_BUTTON_WIDTH + CLOSE_BUTTON_MARGIN;
+            }
+
+            TabBarDrawer.Draw(
+                _tabTitles, _tabActiveIndex,
+                FRAME, (HEADER_HEIGHT - TabBarDrawer.TAB_HEIGHT) * 0.5f, available,
+                (index, pos) => DockingClient.NotifyTabMouseDown(_dockHandle, index, pos.x, pos.y));
+        }
+
         /// <summary>
         /// ヘッダー右のボタン列を描く。閉じるボタンが押されたら false を返す。
         /// 構成・見た目は内部窓 (EditorSubWindow.DrawHeaderButtons) と揃える
         /// </summary>
-        private bool DrawHeaderButtons(Rect closeRect)
+        private bool DrawHeaderButtons(Rect closeRect, bool showConnectButton, bool isConnected)
         {
             if (GUI.Button(closeRect, "x"))
             {
@@ -224,12 +265,8 @@ namespace COM3D2.MotionTimelineEditor
                 return false;
             }
 
-            // 表示条件と色分けの両方で使うため、ホストへの問い合わせは 1 回にまとめる
-            var isConnected = DockingClient.IsConnected(_dockHandle);
-
             // コネクトボタン (閉じるボタンの左隣)。見た目・条件は内部窓と揃える
-            if (DockingClient.isConnectAvailable &&
-                (isConnected || DockingClient.HasAdjacent(_dockHandle)))
+            if (showConnectButton)
             {
                 var connectRect = new Rect(
                     closeRect.x - CONNECT_BUTTON_WIDTH - CLOSE_BUTTON_MARGIN,

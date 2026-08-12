@@ -33,6 +33,10 @@ namespace COM3D2.MotionTimelineEditor
         private static Func<object, bool> _isConnected;
         private static Action<object> _toggleConnect;
 
+        // タブバー描画系 (ホストが旧バージョンだと存在しない)。ペアで一括検出する
+        private static Action<object, Action<string[], int>> _enableTabBar;
+        private static Action<object, int, float, float> _notifyTabMouseDown;
+
         public static bool isAvailable
         {
             get
@@ -49,6 +53,16 @@ namespace COM3D2.MotionTimelineEditor
             {
                 Initialize();
                 return _enableConnect != null;
+            }
+        }
+
+        /// <summary>タブバーのゲスト描画連携が使えるか (ホストが対応バージョンか)</summary>
+        public static bool isTabBarAvailable
+        {
+            get
+            {
+                Initialize();
+                return _enableTabBar != null;
             }
         }
 
@@ -114,6 +128,18 @@ namespace COM3D2.MotionTimelineEditor
                     _toggleConnect = (Action<object>)Delegate.CreateDelegate(
                         typeof(Action<object>), toggleConnect);
                 }
+
+                // タブバー描画系も後発 API のため任意。旧ホストでは見つからないが
+                // タブドッキングは従来通り使えるので警告は出さない
+                var enableTabBar = type.GetMethod("EnableTabBar", BindingFlags.Public | BindingFlags.Static);
+                var notifyTab = type.GetMethod("NotifyTabMouseDown", BindingFlags.Public | BindingFlags.Static);
+                if (enableTabBar != null && notifyTab != null)
+                {
+                    _enableTabBar = (Action<object, Action<string[], int>>)Delegate.CreateDelegate(
+                        typeof(Action<object, Action<string[], int>>), enableTabBar);
+                    _notifyTabMouseDown = (Action<object, int, float, float>)Delegate.CreateDelegate(
+                        typeof(Action<object, int, float, float>), notifyTab);
+                }
             }
             catch (Exception e)
             {
@@ -128,6 +154,8 @@ namespace COM3D2.MotionTimelineEditor
                 _hasAdjacent = null;
                 _isConnected = null;
                 _toggleConnect = null;
+                _enableTabBar = null;
+                _notifyTabMouseDown = null;
             }
         }
 
@@ -223,6 +251,22 @@ namespace COM3D2.MotionTimelineEditor
             if (handle != null && isConnectAvailable)
             {
                 _toggleConnect(handle);
+            }
+        }
+
+        public static void EnableTabBar(object handle, Action<string[], int> onTabBarChanged)
+        {
+            if (handle != null && isTabBarAvailable)
+            {
+                _enableTabBar(handle, onTabBarChanged);
+            }
+        }
+
+        public static void NotifyTabMouseDown(object handle, int tabIndex, float x, float y)
+        {
+            if (handle != null && isTabBarAvailable)
+            {
+                _notifyTabMouseDown(handle, tabIndex, x, y);
             }
         }
     }
