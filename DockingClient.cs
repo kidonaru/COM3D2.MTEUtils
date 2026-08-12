@@ -76,7 +76,7 @@ namespace COM3D2.MotionTimelineEditor
             // プラグインのロード順によっては EditorWindow のアセンブリがまだ AppDomain に
             // 存在せず Type.GetType が null を返すことがある。その場合は _initialized を
             // 立てずに戻り、次回呼び出し (Register / NotifyHeaderMouseDown) で再試行する
-            var type = FindDockingHostType();
+            var type = FindHostType("DockingHost");
             if (type == null)
             {
                 return;
@@ -159,30 +159,48 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
-        /// <summary>
-        /// DockingHost の型を解決する。通常は Type.GetType で足りるが、
-        /// EditorWindow プラグインのロードが自分より後の場合は Type.GetType が
-        /// null を返すため、AppDomain の読み込み済みアセンブリからも探す
-        /// </summary>
-        private static Type FindDockingHostType()
+        // EditorWindow プラグインのアセンブリ名 (名前空間も同名)。旧名 COM3D25.* の
+        // プラグインが入っている環境でも接続できるよう、新名 → 旧名の順に探す。
+        // 旧名の配布物が出回らなくなったら 2 つ目のエントリごと削除してよい
+        private static readonly string[] HostAssemblyNames =
         {
-            var type = Type.GetType(
-                "COM3D25.EditorWindow.Plugin.DockingHost, COM3D25.EditorWindow.Plugin");
-            if (type != null)
-            {
-                return type;
-            }
+            "COM3D2.EditorWindow.Plugin",
+            "COM3D25.EditorWindow.Plugin",
+        };
 
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+        /// <summary>
+        /// EditorWindow プラグイン内の型を解決する。通常は Type.GetType で足りるが、
+        /// EditorWindow プラグインのロードが自分より後の場合は Type.GetType が
+        /// null を返すため、AppDomain の読み込み済みアセンブリからも探す。
+        /// 新旧の DLL が同時にロードされていても新名が優先されるよう、
+        /// どちらの経路も HostAssemblyNames の順で走査する
+        /// </summary>
+        /// <param name="typeName">名前空間を除いた型名 (例: "DockingHost")</param>
+        internal static Type FindHostType(string typeName)
+        {
+            foreach (var assemblyName in HostAssemblyNames)
             {
-                if (assembly.GetName().Name != "COM3D25.EditorWindow.Plugin")
-                {
-                    continue;
-                }
-                type = assembly.GetType("COM3D25.EditorWindow.Plugin.DockingHost");
+                var type = Type.GetType(assemblyName + "." + typeName + ", " + assemblyName);
                 if (type != null)
                 {
                     return type;
+                }
+            }
+
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            foreach (var assemblyName in HostAssemblyNames)
+            {
+                foreach (var assembly in assemblies)
+                {
+                    if (assembly.GetName().Name != assemblyName)
+                    {
+                        continue;
+                    }
+                    var type = assembly.GetType(assemblyName + "." + typeName);
+                    if (type != null)
+                    {
+                        return type;
+                    }
                 }
             }
 

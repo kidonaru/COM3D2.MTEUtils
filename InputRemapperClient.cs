@@ -38,7 +38,7 @@ namespace COM3D2.MotionTimelineEditor
             }
             _lastAttemptFrame = frame;
 
-            var type = FindInputRemapperType();
+            var type = DockingClient.FindHostType("InputRemapper");
             if (type == null)
             {
                 // EditorWindow 未ロード。後からロードされる可能性があるので再試行を続ける
@@ -73,33 +73,5 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
-        /// <summary>
-        /// InputRemapper の型を解決する。DockingClient.FindDockingHostType と同じ理由で
-        /// Type.GetType が null の場合は AppDomain の読み込み済みアセンブリからも探す
-        /// </summary>
-        private static Type FindInputRemapperType()
-        {
-            var type = Type.GetType(
-                "COM3D25.EditorWindow.Plugin.InputRemapper, COM3D25.EditorWindow.Plugin");
-            if (type != null)
-            {
-                return type;
-            }
-
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                if (assembly.GetName().Name != "COM3D25.EditorWindow.Plugin")
-                {
-                    continue;
-                }
-                type = assembly.GetType("COM3D25.EditorWindow.Plugin.InputRemapper");
-                if (type != null)
-                {
-                    return type;
-                }
-            }
-
-            return null;
-        }
     }
 }
