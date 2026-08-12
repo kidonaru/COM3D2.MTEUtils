@@ -999,6 +999,31 @@ namespace COM3D2.MotionTimelineEditor
             return DrawToggle(null, value, width, height, true, onChanged);
         }
 
+        /// <summary>アイコン表示のトグルボタン。ON のときアクセント色でティントする</summary>
+        public bool DrawToggle(
+            Texture2D icon,
+            bool value,
+            float width,
+            float height,
+            Action<bool> onChanged,
+            float offsetSize = 0f)
+        {
+            var drawRect = GetDrawRect(width, height);
+            BeginColor(value ? option.accentColor : Color.white);
+            bool newValue = GUI.Toggle(drawRect, value, "", gsButton);
+            DrawTileThumb(icon, offsetSize * 0.5f, offsetSize * 0.5f,
+                drawRect.width - offsetSize, drawRect.height - offsetSize);
+            EndColor();
+            NextElement(drawRect);
+
+            if (newValue != value)
+            {
+                onChanged(newValue);
+                return true;
+            }
+            return false;
+        }
+
         public void DrawLabel(
             string text,
             float width,
