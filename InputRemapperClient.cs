@@ -18,7 +18,9 @@ namespace COM3D2.MotionTimelineEditor
         private const int RETRY_INTERVAL_FRAMES = 60;
 
         private static bool _resolved;
-        private static int _lastAttemptFrame = int.MinValue;
+        // int.MinValue だと frame - _lastAttemptFrame がオーバーフローして負になり、
+        // リトライガードが恒久的に成立して一度も解決を試行しなくなる
+        private static int _lastAttemptFrame = -RETRY_INTERVAL_FRAMES;
 
         /// <summary>
         /// InputRemapper を探して mousePositionGetter を差し替える。
