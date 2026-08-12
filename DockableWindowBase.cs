@@ -203,15 +203,33 @@ namespace COM3D2.MotionTimelineEditor
                 (HEADER_HEIGHT - CLOSE_BUTTON_HEIGHT) * 0.5f,
                 CLOSE_BUTTON_WIDTH,
                 CLOSE_BUTTON_HEIGHT);
-            if (GUI.Button(closeRect, "x"))
+            if (!DrawHeaderButtons(closeRect))
             {
-                Close();
+                // 閉じられたウィンドウには以降の入力判定を走らせない
                 return;
             }
 
+            HandleDragInput(closeRect);
+        }
+
+        /// <summary>
+        /// ヘッダー右のボタン列を描く。閉じるボタンが押されたら false を返す。
+        /// 構成・見た目は内部窓 (EditorSubWindow.DrawHeaderButtons) と揃える
+        /// </summary>
+        private bool DrawHeaderButtons(Rect closeRect)
+        {
+            if (GUI.Button(closeRect, "x"))
+            {
+                Close();
+                return false;
+            }
+
+            // 表示条件と色分けの両方で使うため、ホストへの問い合わせは 1 回にまとめる
+            var isConnected = DockingClient.IsConnected(_dockHandle);
+
             // コネクトボタン (閉じるボタンの左隣)。見た目・条件は内部窓と揃える
             if (DockingClient.isConnectAvailable &&
-                (DockingClient.IsConnected(_dockHandle) || DockingClient.HasAdjacent(_dockHandle)))
+                (isConnected || DockingClient.HasAdjacent(_dockHandle)))
             {
                 var connectRect = new Rect(
                     closeRect.x - CONNECT_BUTTON_WIDTH - CLOSE_BUTTON_MARGIN,
@@ -219,7 +237,6 @@ namespace COM3D2.MotionTimelineEditor
                     CONNECT_BUTTON_WIDTH,
                     CLOSE_BUTTON_HEIGHT);
 
-                var isConnected = DockingClient.IsConnected(_dockHandle);
                 var oldColor = GUI.color;
                 // 連結中はアクセントカラーで塗って状態を示す
                 GUI.color = isConnected ? CONNECT_ACCENT_COLOR : Color.white;
@@ -230,6 +247,12 @@ namespace COM3D2.MotionTimelineEditor
                 GUI.color = oldColor;
             }
 
+            return true;
+        }
+
+        /// <summary>リサイズ開始判定・ドラッグ起点の通知・ウィンドウ移動ドラッグを処理する</summary>
+        private void HandleDragInput(Rect closeRect)
+        {
             var e = Event.current;
 
             // リサイズ開始判定 (4辺+4隅)。開始したらイベントを消費して移動と競合させない
