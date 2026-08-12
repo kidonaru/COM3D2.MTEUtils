@@ -79,10 +79,13 @@ namespace COM3D2.MotionTimelineEditor
         /// </summary>
         public void ProcessFocus(GUIView rootView, IGUIWindow host)
         {
-            ProcessFocus(rootView, host, () => host.windowRect);
+            ProcessFocus(rootView, host, null);
         }
 
-        /// <summary>コンボを描いた GUI.Window の矩形をホストと別に指定する版</summary>
+        /// <summary>
+        /// コンボを描いた GUI.Window の矩形をホストと別に指定する版。
+        /// hostRectGetter が null なら host.windowRect を使う
+        /// </summary>
         public void ProcessFocus(GUIView rootView, IGUIWindow host, Func<Rect> hostRectGetter)
         {
             var comboBox = rootView.focusedComboBox;
@@ -100,7 +103,10 @@ namespace COM3D2.MotionTimelineEditor
 
             _comboBox = comboBox;
             _host = host;
-            _hostRectGetter = hostRectGetter;
+            // 既定のクロージャ生成はここまで遅らせる。ProcessFocus は毎フレーム
+            // (IMGUI なので 1 フレームに複数回) 呼ばれるため、引数で作ると
+            // コンボを開いていない間も delegate を確保し続けてしまう
+            _hostRectGetter = hostRectGetter ?? (() => host.windowRect);
         }
 
         /// <summary>ボタンのスクリーンGUI座標の矩形。トグル判定と外側クリック判定に使う</summary>
