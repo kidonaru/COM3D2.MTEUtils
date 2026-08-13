@@ -23,6 +23,7 @@ namespace COM3D2.MotionTimelineEditor
 
         private static RegisterDelegate _register;
         private static Action<object> _unregister;
+        private static Func<bool> _isViewActive;
         private static bool _initialized;
 
         public static bool isAvailable
@@ -31,6 +32,25 @@ namespace COM3D2.MotionTimelineEditor
             {
                 Initialize();
                 return _register != null;
+            }
+        }
+
+        /// <summary>
+        /// ホストに外部ギズモを描画・操作できるビューが稼働しているか。
+        /// EditorWindow が入っていても GameView が window mode でなく SceneView も
+        /// 非表示なら、ホストからは描画も入力も届かない。呼び出し側はこの間だけ
+        /// standalone (Camera.main + Input.mousePosition) で駆動する。
+        /// IsViewActive を持たない旧ホストでは常に稼働扱いにする (従来動作を保つ)
+        /// </summary>
+        public static bool isViewActive
+        {
+            get
+            {
+                if (!isAvailable)
+                {
+                    return false;
+                }
+                return _isViewActive == null || _isViewActive();
             }
         }
 
@@ -65,6 +85,14 @@ namespace COM3D2.MotionTimelineEditor
 
                 _register = (RegisterDelegate)Delegate.CreateDelegate(typeof(RegisterDelegate), register);
                 _unregister = (Action<object>)Delegate.CreateDelegate(typeof(Action<object>), unregister);
+
+                // ビュー稼働状態の問い合わせは後発 API のため任意。
+                // 旧ホストでは見つからないが登録自体は従来通り機能するので警告は出さない
+                var isViewActive = type.GetMethod("IsViewActive", BindingFlags.Public | BindingFlags.Static);
+                if (isViewActive != null)
+                {
+                    _isViewActive = (Func<bool>)Delegate.CreateDelegate(typeof(Func<bool>), isViewActive);
+                }
             }
             catch (Exception e)
             {
@@ -72,6 +100,7 @@ namespace COM3D2.MotionTimelineEditor
                 MTEUtils.LogWarning("GizmoHostClient: GizmoHost との接続に失敗しました: " + e.Message);
                 _register = null;
                 _unregister = null;
+                _isViewActive = null;
             }
         }
 
