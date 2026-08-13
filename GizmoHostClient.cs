@@ -24,6 +24,7 @@ namespace COM3D2.MotionTimelineEditor
         private static RegisterDelegate _register;
         private static Action<object> _unregister;
         private static Func<bool> _isViewActive;
+        private static bool _viewActiveFailed;
         private static bool _initialized;
 
         public static bool isAvailable
@@ -46,11 +47,27 @@ namespace COM3D2.MotionTimelineEditor
         {
             get
             {
-                if (!isAvailable)
+                if (!isAvailable || _viewActiveFailed)
                 {
                     return false;
                 }
-                return _isViewActive == null || _isViewActive();
+                if (_isViewActive == null)
+                {
+                    return true;
+                }
+
+                try
+                {
+                    return _isViewActive();
+                }
+                catch (Exception e)
+                {
+                    // 毎フレーム問い合わせる経路なので、一度失敗したら以後は standalone に倒して
+                    // ログを溢れさせない
+                    MTEUtils.LogWarning("GizmoHostClient: GizmoHost の稼働状態の取得に失敗しました: " + e.Message);
+                    _viewActiveFailed = true;
+                    return false;
+                }
             }
         }
 
@@ -116,16 +133,37 @@ namespace COM3D2.MotionTimelineEditor
             Func<bool> isDragging,
             Action<Camera> draw)
         {
-            return isAvailable
-                ? _register(name, tryBeginDrag, updateDrag, endDrag, isDragging, draw)
-                : null;
+            if (!isAvailable)
+            {
+                return null;
+            }
+
+            // ホスト側で失敗した場合はハンドルなし (= standalone) で続行する
+            try
+            {
+                return _register(name, tryBeginDrag, updateDrag, endDrag, isDragging, draw);
+            }
+            catch (Exception e)
+            {
+                MTEUtils.LogWarning("GizmoHostClient: GizmoHost への登録に失敗しました: " + e.Message);
+                return null;
+            }
         }
 
         public static void Unregister(object handle)
         {
-            if (handle != null && isAvailable)
+            if (handle == null || !isAvailable)
+            {
+                return;
+            }
+
+            try
             {
                 _unregister(handle);
+            }
+            catch (Exception e)
+            {
+                MTEUtils.LogWarning("GizmoHostClient: GizmoHost からの登録解除に失敗しました: " + e.Message);
             }
         }
     }
