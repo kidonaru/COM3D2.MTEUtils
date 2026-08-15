@@ -85,15 +85,6 @@ namespace COM3D2.MotionTimelineEditor
 
                 _register = (RegisterDelegate)Delegate.CreateDelegate(typeof(RegisterDelegate), register);
                 _unregister = (Action<object>)Delegate.CreateDelegate(typeof(Action<object>), unregister);
-
-                // ウィンドウ状態は後から足した API なので、無くても登録自体は成立させる
-                var getWindowRect = type.GetMethod("GetWindowRect", BindingFlags.Public | BindingFlags.Static);
-                var isWindowVisible = type.GetMethod("IsWindowVisible", BindingFlags.Public | BindingFlags.Static);
-                if (getWindowRect != null && isWindowVisible != null)
-                {
-                    _getWindowRect = (Func<Rect>)Delegate.CreateDelegate(typeof(Func<Rect>), getWindowRect);
-                    _isWindowVisible = (Func<bool>)Delegate.CreateDelegate(typeof(Func<bool>), isWindowVisible);
-                }
             }
             catch (Exception e)
             {
@@ -101,6 +92,33 @@ namespace COM3D2.MotionTimelineEditor
                 MTEUtils.LogWarning("InspectorHostClient: InspectorHost との接続に失敗しました: " + e.Message);
                 _register = null;
                 _unregister = null;
+                return;
+            }
+
+            InitializeWindowState(type);
+        }
+
+        /// <summary>
+        /// ウィンドウ状態は後から足した API なので、無くても登録自体は成立させる。
+        /// 失敗が必須 API の無効化へ波及しないよう、解決も例外処理も分けている
+        /// </summary>
+        private static void InitializeWindowState(Type type)
+        {
+            try
+            {
+                var getWindowRect = type.GetMethod("GetWindowRect", BindingFlags.Public | BindingFlags.Static);
+                var isWindowVisible = type.GetMethod("IsWindowVisible", BindingFlags.Public | BindingFlags.Static);
+                if (getWindowRect == null || isWindowVisible == null)
+                {
+                    return;
+                }
+
+                _getWindowRect = (Func<Rect>)Delegate.CreateDelegate(typeof(Func<Rect>), getWindowRect);
+                _isWindowVisible = (Func<bool>)Delegate.CreateDelegate(typeof(Func<bool>), isWindowVisible);
+            }
+            catch (Exception e)
+            {
+                MTEUtils.LogWarning("InspectorHostClient: ウィンドウ状態の取得に失敗しました: " + e.Message);
                 _getWindowRect = null;
                 _isWindowVisible = null;
             }
