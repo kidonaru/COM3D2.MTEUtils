@@ -5,10 +5,10 @@ using UnityEngine;
 namespace COM3D2.MotionTimelineEditor
 {
     /// <summary>
-    /// EditorWindow プラグインの GizmoHost へのリフレクションブリッジ。
+    /// SceneEditor プラグインの GizmoHost へのリフレクションブリッジ。
     /// 登録すると SceneView / GameView の入力・描画ディスパッチに乗り、
     /// 各ビューの RT 座標とカメラでギズモを操作できる。
-    /// EditorWindow が不在・旧バージョンの場合は isAvailable が false になり、
+    /// SceneEditor が不在・旧バージョンの場合は isAvailable が false になり、
     /// 呼び出し側は standalone (Camera.main + Input.mousePosition) で駆動する
     /// </summary>
     public static class GizmoHostClient
@@ -38,7 +38,7 @@ namespace COM3D2.MotionTimelineEditor
 
         /// <summary>
         /// ホストに外部ギズモを描画・操作できるビューが稼働しているか。
-        /// EditorWindow が入っていても GameView が window mode でなく SceneView も
+        /// SceneEditor が入っていても GameView が window mode でなく SceneView も
         /// 非表示なら、ホストからは描画も入力も届かない。呼び出し側はこの間だけ
         /// standalone (Camera.main + Input.mousePosition) で駆動する。
         /// IsViewActive を持たない旧ホストでは常に稼働扱いにする (従来動作を保つ)

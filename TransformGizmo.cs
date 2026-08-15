@@ -18,7 +18,7 @@ namespace COM3D2.MotionTimelineEditor
     /// 任意カメラの OnPostRender から Draw し、そのカメラの RT ピクセル座標で
     /// TryBeginDrag / UpdateDrag を呼ぶ。ドラッグ解決は開始時のカメラ基準で行うため、
     /// SceneView で掴んだドラッグが他ビューの座標で解釈されることはない。
-    /// EditorWindow の GizmoRenderer から抽出した実装 (数式は同一)
+    /// SceneEditor の GizmoRenderer から抽出した実装 (数式は同一)
     /// </summary>
     public class TransformGizmo
     {

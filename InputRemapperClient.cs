@@ -5,12 +5,12 @@ using UnityEngine;
 namespace COM3D2.MotionTimelineEditor
 {
     /// <summary>
-    /// EditorWindow プラグインの InputRemapper へのリフレクションブリッジ。
+    /// SceneEditor プラグインの InputRemapper へのリフレクションブリッジ。
     /// InputRemapper は GameView の描画領域内で Input.mousePosition を RT 座標へ書き換えるため、
     /// スクリーン座標前提の窓上判定 (MTEUtils.IsMouseOverWindowRect 等) が変換済み座標を
     /// 読んでしまうと GameView 上なのに「ウィンドウ上」と誤判定し、入力ブロックや
     /// ギズモ抑止が誤発動する。ここで MTEUtils.mousePositionGetter を生座標へ差し替える。
-    /// EditorWindow が存在しない環境では何もしない (既定の Input.mousePosition のまま)
+    /// SceneEditor が存在しない環境では何もしない (既定の Input.mousePosition のまま)
     /// </summary>
     public static class InputRemapperClient
     {
@@ -43,7 +43,7 @@ namespace COM3D2.MotionTimelineEditor
             var type = DockingClient.FindHostType("InputRemapper");
             if (type == null)
             {
-                // EditorWindow 未ロード。後からロードされる可能性があるので再試行を続ける
+                // SceneEditor 未ロード。後からロードされる可能性があるので再試行を続ける
                 return;
             }
 

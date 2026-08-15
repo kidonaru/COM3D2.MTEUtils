@@ -5,9 +5,9 @@ using UnityEngine;
 namespace COM3D2.MotionTimelineEditor
 {
     /// <summary>
-    /// EditorWindow プラグインの InspectorHost へのリフレクションブリッジ。
+    /// SceneEditor プラグインの InspectorHost へのリフレクションブリッジ。
     /// 登録すると、EW Inspector で対象オブジェクト選択時に内容描画が丸ごと委譲される。
-    /// EditorWindow が不在・旧バージョンの場合は isAvailable が false になり、
+    /// SceneEditor が不在・旧バージョンの場合は isAvailable が false になり、
     /// 呼び出し側は登録しない (EW Inspector は従来描画のまま)
     /// </summary>
     public static class InspectorHostClient
@@ -34,7 +34,7 @@ namespace COM3D2.MotionTimelineEditor
 
         /// <summary>
         /// ホストのウィンドウ状態を取得できるか。
-        /// 取得できない旧バージョンの EditorWindow では、委譲先はドロップダウンを
+        /// 取得できない旧バージョンの SceneEditor では、委譲先はドロップダウンを
         /// 出さずに済む UI (前後送りボタン等) へ倒す
         /// </summary>
         public static bool isWindowStateAvailable

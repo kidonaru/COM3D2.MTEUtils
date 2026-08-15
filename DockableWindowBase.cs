@@ -5,7 +5,7 @@ namespace COM3D2.MotionTimelineEditor
 {
     /// <summary>
     /// タブドッキング対応の汎用ウィンドウ基底。
-    /// EditorWindow プラグインが存在すれば DockingClient 経由でドッキングへ参加し、
+    /// SceneEditor プラグインが存在すれば DockingClient 経由でドッキングへ参加し、
     /// 存在しない環境では独立ウィンドウとして完結して動作する。
     /// ヘッダー高さ等の寸法はホスト (EditorSubWindow) と揃えること
     /// (グループ加入中はホストが push したタブ状態を自前ヘッダーへ描くため、

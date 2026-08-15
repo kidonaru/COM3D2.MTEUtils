@@ -5,10 +5,10 @@ using UnityEngine;
 namespace COM3D2.MotionTimelineEditor
 {
     /// <summary>
-    /// EditorWindow プラグインの SelectionManager へのリフレクションブリッジ。
+    /// SceneEditor プラグインの SelectionManager へのリフレクションブリッジ。
     /// showGizmo = false で選択すると EW の Inspector には選択が反映されるが
     /// EW 側ギズモは表示されない（呼び出し側が自前ギズモを持つケース用）。
-    /// EditorWindow が不在・旧バージョン（2 引数 Select が無い）の場合は
+    /// SceneEditor が不在・旧バージョン（2 引数 Select が無い）の場合は
     /// isAvailable が false になり、呼び出し側は同期しない
     /// </summary>
     public static class SelectionClient

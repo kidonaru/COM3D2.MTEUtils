@@ -4,10 +4,10 @@ using System.Reflection;
 namespace COM3D2.MotionTimelineEditor
 {
     /// <summary>
-    /// EditorWindow プラグインの HistoryAPI へのリフレクションブリッジ。
-    /// 自前の操作を EditorWindow の操作履歴へ積み、undo/redo キーや
+    /// SceneEditor プラグインの HistoryAPI へのリフレクションブリッジ。
+    /// 自前の操作を SceneEditor の操作履歴へ積み、undo/redo キーや
     /// 履歴ウィンドウから戻せるようにする。
-    /// EditorWindow が存在しない環境では isAvailable が false になり、
+    /// SceneEditor が存在しない環境では isAvailable が false になり、
     /// Register 等はすべて無視される (呼び出し側で分岐する必要はない)。
     /// 毎回 MethodInfo.Invoke するとコストが嵩むため、
     /// 初回に一度だけ Delegate.CreateDelegate でキャッシュする
@@ -48,7 +48,7 @@ namespace COM3D2.MotionTimelineEditor
                 return;
             }
 
-            // プラグインのロード順によっては EditorWindow のアセンブリがまだ AppDomain に
+            // プラグインのロード順によっては SceneEditor のアセンブリがまだ AppDomain に
             // 存在せず型が見つからないことがある。その場合は _initialized を立てずに戻り、
             // 次回呼び出しで再試行する
             var type = DockingClient.FindHostType("HistoryAPI");
@@ -110,7 +110,7 @@ namespace COM3D2.MotionTimelineEditor
         }
 
         /// <summary>
-        /// 確定済みの操作を 1 件登録する。EditorWindow が無い環境では何もしない
+        /// 確定済みの操作を 1 件登録する。SceneEditor が無い環境では何もしない
         /// </summary>
         /// <param name="description">履歴ウィンドウに表示する操作名</param>
         /// <param name="undo">操作前の状態へ書き戻す処理</param>

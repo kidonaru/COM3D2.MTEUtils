@@ -4,10 +4,10 @@ using System.Reflection;
 namespace COM3D2.MotionTimelineEditor
 {
     /// <summary>
-    /// EditorWindow プラグインの GizmoRenderer が持つギズモ操作設定
+    /// SceneEditor プラグインの GizmoRenderer が持つギズモ操作設定
     /// (操作種別 / Local・Global) へのリフレクションブリッジ。
     /// enum はアセンブリ間で別型になるため int 経由で授受する。
-    /// EditorWindow が不在・シグネチャ不一致の場合は isAvailable が false になり、
+    /// SceneEditor が不在・シグネチャ不一致の場合は isAvailable が false になり、
     /// 呼び出し側は同期しない
     /// </summary>
     public static class GizmoToolClient

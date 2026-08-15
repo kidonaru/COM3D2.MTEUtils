@@ -5,8 +5,8 @@ using UnityEngine;
 namespace COM3D2.MotionTimelineEditor
 {
     /// <summary>
-    /// EditorWindow プラグインの DockingHost へのリフレクションブリッジ。
-    /// EditorWindow が存在しない環境では isAvailable が false になり、
+    /// SceneEditor プラグインの DockingHost へのリフレクションブリッジ。
+    /// SceneEditor が存在しない環境では isAvailable が false になり、
     /// 呼び出し側 (DockableWindowBase) は独立ウィンドウとして振る舞う。
     /// 毎フレーム MethodInfo.Invoke するとコストが嵩むため、
     /// 起動時に一度だけ Delegate.CreateDelegate でキャッシュする
@@ -78,7 +78,7 @@ namespace COM3D2.MotionTimelineEditor
                 return;
             }
 
-            // プラグインのロード順によっては EditorWindow のアセンブリがまだ AppDomain に
+            // プラグインのロード順によっては SceneEditor のアセンブリがまだ AppDomain に
             // 存在せず Type.GetType が null を返すことがある。その場合は _initialized を
             // 立てずに戻り、次回呼び出し (Register / NotifyHeaderMouseDown) で再試行する
             var type = FindHostType("DockingHost");
@@ -173,18 +173,19 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
-        // EditorWindow プラグインのアセンブリ名 (名前空間も同名)。旧名 COM3D25.* の
-        // プラグインが入っている環境でも接続できるよう、新名 → 旧名の順に探す。
-        // 旧名の配布物が出回らなくなったら 2 つ目のエントリごと削除してよい
+        // SceneEditor プラグインのアセンブリ名 (名前空間も同名)。旧名 (COM3D2.EditorWindow.* /
+        // COM3D25.EditorWindow.*) のプラグインが入っている環境でも接続できるよう、
+        // 新名 → 旧名の順に探す。旧名の配布物が出回らなくなったらエントリごと削除してよい
         private static readonly string[] HostAssemblyNames =
         {
+            "COM3D2.SceneEditor.Plugin",
             "COM3D2.EditorWindow.Plugin",
             "COM3D25.EditorWindow.Plugin",
         };
 
         /// <summary>
-        /// EditorWindow プラグイン内の型を解決する。通常は Type.GetType で足りるが、
-        /// EditorWindow プラグインのロードが自分より後の場合は Type.GetType が
+        /// SceneEditor プラグイン内の型を解決する。通常は Type.GetType で足りるが、
+        /// SceneEditor プラグインのロードが自分より後の場合は Type.GetType が
         /// null を返すため、AppDomain の読み込み済みアセンブリからも探す。
         /// 新旧の DLL が同時にロードされていても新名が優先されるよう、
         /// どちらの経路も HostAssemblyNames の順で走査する
