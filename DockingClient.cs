@@ -173,49 +173,35 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
-        // SceneEditor プラグインのアセンブリ名 (名前空間も同名)。旧名 (COM3D2.EditorWindow.* /
-        // COM3D25.EditorWindow.*) のプラグインが入っている環境でも接続できるよう、
-        // 新名 → 旧名の順に探す。旧名の配布物が出回らなくなったらエントリごと削除してよい
-        private static readonly string[] HostAssemblyNames =
-        {
-            "COM3D2.SceneEditor.Plugin",
-            "COM3D2.EditorWindow.Plugin",
-            "COM3D25.EditorWindow.Plugin",
-        };
+        // SceneEditor プラグインのアセンブリ名 (名前空間も同名)
+        private const string HostAssemblyName = "COM3D2.SceneEditor.Plugin";
 
         /// <summary>
         /// SceneEditor プラグイン内の型を解決する。通常は Type.GetType で足りるが、
         /// SceneEditor プラグインのロードが自分より後の場合は Type.GetType が
-        /// null を返すため、AppDomain の読み込み済みアセンブリからも探す。
-        /// 新旧の DLL が同時にロードされていても新名が優先されるよう、
-        /// どちらの経路も HostAssemblyNames の順で走査する
+        /// null を返すため、AppDomain の読み込み済みアセンブリからも探す
         /// </summary>
         /// <param name="typeName">名前空間を除いた型名 (例: "DockingHost")</param>
         internal static Type FindHostType(string typeName)
         {
-            foreach (var assemblyName in HostAssemblyNames)
+            var fullName = HostAssemblyName + "." + typeName;
+
+            var type = Type.GetType(fullName + ", " + HostAssemblyName);
+            if (type != null)
             {
-                var type = Type.GetType(assemblyName + "." + typeName + ", " + assemblyName);
+                return type;
+            }
+
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                if (assembly.GetName().Name != HostAssemblyName)
+                {
+                    continue;
+                }
+                type = assembly.GetType(fullName);
                 if (type != null)
                 {
                     return type;
-                }
-            }
-
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            foreach (var assemblyName in HostAssemblyNames)
-            {
-                foreach (var assembly in assemblies)
-                {
-                    if (assembly.GetName().Name != assemblyName)
-                    {
-                        continue;
-                    }
-                    var type = assembly.GetType(assemblyName + "." + typeName);
-                    if (type != null)
-                    {
-                        return type;
-                    }
                 }
             }
 
