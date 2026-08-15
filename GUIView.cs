@@ -1338,6 +1338,11 @@ namespace COM3D2.MotionTimelineEditor
             public Action<Vector3, int> onChangedAxis;
             /// <summary>null ならリセットボタンを出さない</summary>
             public Action onReset;
+            /// <summary>連動トグルのアイコン。null ならテキスト表示にフォールバック</summary>
+            public Texture2D linkIcon;
+            public bool linked;
+            /// <summary>null なら連動トグルを出さない</summary>
+            public Action<bool> onLinkChanged;
         }
 
         private static readonly string[] Vector3AxisNames = { "X", "Y", "Z" };
@@ -1354,6 +1359,7 @@ namespace COM3D2.MotionTimelineEditor
             var height = option.height > 0f ? option.height : 20f;
             var value = option.value;
             var hasReset = option.onReset != null;
+            var hasLink = option.onLinkChanged != null;
 
             // ラベル・ドラッグラベル・リセット以外の残り幅を 3 軸で分け合う。
             // viewRect はスクロールビュー中もコンテンツ幅を返すため分岐不要
@@ -1365,6 +1371,10 @@ namespace COM3D2.MotionTimelineEditor
                 + (Vector3DragLabelWidth + margin) * 3
                 + margin * 3;
             if (hasReset)
+            {
+                available -= Vector3ResetButtonWidth + margin;
+            }
+            if (hasLink)
             {
                 available -= Vector3ResetButtonWidth + margin;
             }
@@ -1408,6 +1418,21 @@ namespace COM3D2.MotionTimelineEditor
                     DrawButton("R", Vector3ResetButtonWidth, height))
                 {
                     option.onReset();
+                }
+
+                if (hasLink)
+                {
+                    if (option.linkIcon != null)
+                    {
+                        DrawToggle(option.linkIcon, option.linked,
+                            Vector3ResetButtonWidth, height, option.onLinkChanged);
+                    }
+                    else
+                    {
+                        // アイコンが読み込めない環境向けのテキストフォールバック
+                        DrawToggle("連", option.linked,
+                            Vector3ResetButtonWidth, height, option.onLinkChanged);
+                    }
                 }
             }
             EndLayout();
