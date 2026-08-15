@@ -19,6 +19,8 @@ namespace COM3D2.MotionTimelineEditor
 
         private static RegisterDelegate _register;
         private static Action<object> _unregister;
+        private static Func<Rect> _getWindowRect;
+        private static Func<bool> _isWindowVisible;
         private static bool _initialized;
 
         public static bool isAvailable
@@ -29,6 +31,28 @@ namespace COM3D2.MotionTimelineEditor
                 return _register != null;
             }
         }
+
+        /// <summary>
+        /// ホストのウィンドウ状態を取得できるか。
+        /// 取得できない旧バージョンの EditorWindow では、委譲先はドロップダウンを
+        /// 出さずに済む UI (前後送りボタン等) へ倒す
+        /// </summary>
+        public static bool isWindowStateAvailable
+        {
+            get
+            {
+                Initialize();
+                return _getWindowRect != null;
+            }
+        }
+
+        /// <summary>ホストのウィンドウのスクリーン矩形。取得できなければ zero</summary>
+        public static Rect hostWindowRect
+            => isWindowStateAvailable ? _getWindowRect() : new Rect();
+
+        /// <summary>ホストのウィンドウが描画されているか。取得できなければ false</summary>
+        public static bool isHostWindowVisible
+            => isWindowStateAvailable && _isWindowVisible();
 
         private static void Initialize()
         {
@@ -61,6 +85,15 @@ namespace COM3D2.MotionTimelineEditor
 
                 _register = (RegisterDelegate)Delegate.CreateDelegate(typeof(RegisterDelegate), register);
                 _unregister = (Action<object>)Delegate.CreateDelegate(typeof(Action<object>), unregister);
+
+                // ウィンドウ状態は後から足した API なので、無くても登録自体は成立させる
+                var getWindowRect = type.GetMethod("GetWindowRect", BindingFlags.Public | BindingFlags.Static);
+                var isWindowVisible = type.GetMethod("IsWindowVisible", BindingFlags.Public | BindingFlags.Static);
+                if (getWindowRect != null && isWindowVisible != null)
+                {
+                    _getWindowRect = (Func<Rect>)Delegate.CreateDelegate(typeof(Func<Rect>), getWindowRect);
+                    _isWindowVisible = (Func<bool>)Delegate.CreateDelegate(typeof(Func<bool>), isWindowVisible);
+                }
             }
             catch (Exception e)
             {
@@ -68,6 +101,8 @@ namespace COM3D2.MotionTimelineEditor
                 MTEUtils.LogWarning("InspectorHostClient: InspectorHost との接続に失敗しました: " + e.Message);
                 _register = null;
                 _unregister = null;
+                _getWindowRect = null;
+                _isWindowVisible = null;
             }
         }
 
