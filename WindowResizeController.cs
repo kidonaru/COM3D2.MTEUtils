@@ -10,8 +10,11 @@ namespace COM3D2.MotionTimelineEditor
     /// </summary>
     public class WindowResizeController
     {
+        /// <summary>
+        /// つかんでいる辺。ビット値は DLL 間 (DockingHost.SnapResize) の契約でもあるため変更禁止
+        /// </summary>
         [Flags]
-        private enum ResizeEdge
+        public enum ResizeEdge
         {
             None = 0,
             Left = 1,
@@ -23,6 +26,13 @@ namespace COM3D2.MotionTimelineEditor
         // リサイズのつかみ幅。角は掴みやすいよう RESIZE_CORNER 四方まで広げる
         public static readonly int RESIZE_BORDER = 6;
         public static readonly int RESIZE_CORNER = 20;
+
+        /// <summary>
+        /// つかんでいる辺のスナップ吸着。保持側が設定する (null なら吸着なし)。
+        /// 引数は吸着前の矩形とつかんでいる辺、戻り値は吸着後の矩形。
+        /// 吸着位置は他ウィンドウの配置に依存するため、判断はウィンドウ管理側へ委ねる
+        /// </summary>
+        public Func<Rect, ResizeEdge, Rect> snapper;
 
         private ResizeEdge _edge = ResizeEdge.None;
         // リサイズ開始時のウィンドウ矩形とカーソル位置。
@@ -92,7 +102,7 @@ namespace COM3D2.MotionTimelineEditor
                 rect.height = Mathf.Clamp(rect.height + delta.y, minHeight, Screen.height);
             }
 
-            windowRect = rect;
+            windowRect = ApplySnap(rect, minWidth, minHeight);
 
             if (Input.GetMouseButton(0))
             {
@@ -101,6 +111,31 @@ namespace COM3D2.MotionTimelineEditor
 
             _edge = ResizeEdge.None;
             return true;
+        }
+
+        /// <summary>
+        /// 吸着を反映した矩形を返す。吸着で最小サイズを割り込む軸は吸着しない
+        /// (最小サイズへ丸めると狙った辺とは別の位置へ貼り付いて見えるため)
+        /// </summary>
+        private Rect ApplySnap(Rect rect, int minWidth, int minHeight)
+        {
+            if (snapper == null)
+            {
+                return rect;
+            }
+
+            var snapped = snapper(rect, _edge);
+            if (snapped.width >= minWidth)
+            {
+                rect.x = snapped.x;
+                rect.width = snapped.width;
+            }
+            if (snapped.height >= minHeight)
+            {
+                rect.y = snapped.y;
+                rect.height = snapped.height;
+            }
+            return rect;
         }
 
         /// <summary>

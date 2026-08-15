@@ -33,6 +33,11 @@ namespace COM3D2.MotionTimelineEditor
         private static Func<object, bool> _isConnected;
         private static Action<object> _toggleConnect;
 
+        // リサイズ吸着 (ホストが旧バージョンだと存在しない)。
+        // 単独で完結する機能なのでスナップ/コネクト系とは別に検出し、
+        // 旧ホストではリサイズ吸着だけが無効になるようにする
+        private static Func<object, Rect, int, Rect> _snapResize;
+
         // タブバー描画系 (ホストが旧バージョンだと存在しない)。ペアで一括検出する
         private static Action<object, Action<string[], int>> _enableTabBar;
         private static Action<object, int, float, float> _notifyTabMouseDown;
@@ -129,6 +134,14 @@ namespace COM3D2.MotionTimelineEditor
                         typeof(Action<object>), toggleConnect);
                 }
 
+                // リサイズ吸着も後発 API のため任意
+                var snapResize = type.GetMethod("SnapResize", BindingFlags.Public | BindingFlags.Static);
+                if (snapResize != null)
+                {
+                    _snapResize = (Func<object, Rect, int, Rect>)Delegate.CreateDelegate(
+                        typeof(Func<object, Rect, int, Rect>), snapResize);
+                }
+
                 // タブバー描画系も後発 API のため任意。旧ホストでは見つからないが
                 // タブドッキングは従来通り使えるので警告は出さない
                 var enableTabBar = type.GetMethod("EnableTabBar", BindingFlags.Public | BindingFlags.Static);
@@ -154,6 +167,7 @@ namespace COM3D2.MotionTimelineEditor
                 _hasAdjacent = null;
                 _isConnected = null;
                 _toggleConnect = null;
+                _snapResize = null;
                 _enableTabBar = null;
                 _notifyTabMouseDown = null;
             }
@@ -270,6 +284,21 @@ namespace COM3D2.MotionTimelineEditor
             {
                 _toggleConnect(handle);
             }
+        }
+
+        /// <summary>
+        /// リサイズ中の矩形へ辺スナップを適用して返す。
+        /// 未対応ホスト・未登録なら素通しする (吸着なしで従来通り動く)。
+        /// edges は WindowResizeController.ResizeEdge のビット
+        /// </summary>
+        public static Rect SnapResize(object handle, Rect rect, int edges)
+        {
+            Initialize();
+            if (handle == null || _snapResize == null)
+            {
+                return rect;
+            }
+            return _snapResize(handle, rect, edges);
         }
 
         public static void EnableTabBar(object handle, Action<string[], int> onTabBarChanged)

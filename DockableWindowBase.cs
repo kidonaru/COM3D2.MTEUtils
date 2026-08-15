@@ -97,6 +97,13 @@ namespace COM3D2.MotionTimelineEditor
 
         private readonly WindowResizeController _resize = new WindowResizeController();
 
+        protected DockableWindowBase()
+        {
+            // リサイズ中もウィンドウ移動と同じ吸着を効かせる。
+            // 吸着先の判断はホストが持つため、standalone (ハンドル null) では素通しになる
+            _resize.snapper = (rect, edges) => DockingClient.SnapResize(_dockHandle, rect, (int)edges);
+        }
+
         /// <summary>移動の永続化検知用。前フレームの矩形</summary>
         private Rect _lastStoredRect;
 
