@@ -1348,6 +1348,8 @@ namespace COM3D2.MotionTimelineEditor
         private static readonly string[] Vector3AxisNames = { "X", "Y", "Z" };
         public static readonly float Vector3DragLabelWidth = 14f;
         public static readonly float Vector3ResetButtonWidth = 20f;
+        // 連動トグルのアイコン余白 (ツールバーのアイコンボタンと同じ見た目の大きさに揃える)
+        public static readonly float Vector3LinkIconOffset = 4f;
         public static readonly float Vector3FieldMinWidth = 40f;
 
         /// <summary>
@@ -1425,7 +1427,8 @@ namespace COM3D2.MotionTimelineEditor
                     if (option.linkIcon != null)
                     {
                         DrawToggle(option.linkIcon, option.linked,
-                            Vector3ResetButtonWidth, height, option.onLinkChanged);
+                            Vector3ResetButtonWidth, height, option.onLinkChanged,
+                            Vector3LinkIconOffset);
                     }
                     else
                     {
