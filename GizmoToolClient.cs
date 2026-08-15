@@ -27,7 +27,11 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
-        /// <summary>EW 側のギズモ操作種別。取得失敗時は None</summary>
+        /// <summary>
+        /// EW 側のギズモ操作種別。取得失敗時は None (最も無害な「操作なし」へ倒す)。
+        /// 失敗時は isAvailable も false になるため、呼び出し側は読み出し後に
+        /// isAvailable を確認して既定値を現在値と取り違えないようにする
+        /// </summary>
         public static GizmoTool tool
         {
             get
@@ -65,7 +69,10 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
-        /// <summary>EW 側のギズモ軸空間 (true = Local)。取得失敗時は true</summary>
+        /// <summary>
+        /// EW 側のギズモ軸空間 (true = Local)。取得失敗時は EW の既定と同じ true。
+        /// 失敗時の扱いは tool と同じ (isAvailable で判別する)
+        /// </summary>
         public static bool useLocalSpace
         {
             get
