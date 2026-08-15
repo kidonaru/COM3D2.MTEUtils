@@ -1326,12 +1326,16 @@ namespace COM3D2.MotionTimelineEditor
         {
             public string label;
             public float labelWidth;
+            /// <summary>ラベルのスタイル。null なら既定</summary>
+            public GUIStyle labelStyle;
             /// <summary>行の高さ。0 なら 20</summary>
             public float height;
             /// <summary>ドラッグラベルの 1px あたりの増減量</summary>
             public float dragSensitivity;
             public Vector3 value;
             public Action<Vector3> onChanged;
+            /// <summary>変更後の値と変更軸の index を受け取る。onChanged とどちらかを設定する</summary>
+            public Action<Vector3, int> onChangedAxis;
             /// <summary>null ならリセットボタンを出さない</summary>
             public Action onReset;
         }
@@ -1368,7 +1372,7 @@ namespace COM3D2.MotionTimelineEditor
 
             BeginHorizontal();
             {
-                DrawLabel(option.label, option.labelWidth, height);
+                DrawLabel(option.label, option.labelWidth, height, style: option.labelStyle);
 
                 for (var i = 0; i < 3; i++)
                 {
@@ -1379,7 +1383,7 @@ namespace COM3D2.MotionTimelineEditor
                         delta =>
                         {
                             value[index] += delta;
-                            option.onChanged(value);
+                            NotifyChanged(option, value, index);
                         });
 
                     // ドラッグで変わった値を表示へ反映するため、キャッシュを自前で更新する
@@ -1395,7 +1399,7 @@ namespace COM3D2.MotionTimelineEditor
                         onChanged = newValue =>
                         {
                             value[index] = newValue;
-                            option.onChanged(value);
+                            NotifyChanged(option, value, index);
                         },
                     });
                 }
@@ -1407,6 +1411,18 @@ namespace COM3D2.MotionTimelineEditor
                 }
             }
             EndLayout();
+        }
+
+        private static void NotifyChanged(Vector3RowOption option, Vector3 value, int index)
+        {
+            if (option.onChangedAxis != null)
+            {
+                option.onChangedAxis(value, index);
+            }
+            else if (option.onChanged != null)
+            {
+                option.onChanged(value);
+            }
         }
 
         public struct IntFieldOption
