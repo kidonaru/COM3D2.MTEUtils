@@ -14,6 +14,8 @@ namespace COM3D2.MotionTimelineEditor
     public static class SelectionClient
     {
         private static Action<GameObject, bool> _select;
+        // フォーカス指定つきの 3 引数 Select。これを持たない旧ホストでは null になる
+        private static Action<GameObject, bool, bool> _selectWithFocus;
         private static Func<GameObject> _getSelectedObject;
         private static EventInfo _selectionChangedEvent;
         private static object _instance;
@@ -97,6 +99,16 @@ namespace COM3D2.MotionTimelineEditor
                     typeof(Action<GameObject, bool>), instance, select);
                 _getSelectedObject = (Func<GameObject>)Delegate.CreateDelegate(
                     typeof(Func<GameObject>), instance, selectedProp.GetGetMethod());
+
+                // フォーカス指定は後から追加されたオーバーロード。無い旧ホストでも
+                // 選択の同期自体は成立するので、ここは見つからなくても無効化しない
+                var selectWithFocus = type.GetMethod("Select", BindingFlags.Public | BindingFlags.Instance,
+                    null, new[] { typeof(GameObject), typeof(bool), typeof(bool) }, null);
+                if (selectWithFocus != null)
+                {
+                    _selectWithFocus = (Action<GameObject, bool, bool>)Delegate.CreateDelegate(
+                        typeof(Action<GameObject, bool, bool>), instance, selectWithFocus);
+                }
             }
             catch (Exception e)
             {
@@ -105,15 +117,18 @@ namespace COM3D2.MotionTimelineEditor
                 _instance = null;
                 _selectionChangedEvent = null;
                 _select = null;
+                _selectWithFocus = null;
                 _getSelectedObject = null;
             }
         }
 
         /// <summary>
         /// SceneEditor 側の選択を設定する。go = null で選択解除。
-        /// showGizmo = false なら SceneEditor 側ギズモを抑止する
+        /// showGizmo = false なら SceneEditor 側ギズモを抑止する。
+        /// focus = true なら SceneView のカメラを対象へ寄せる
+        /// （フォーカス指定に対応しない旧 SceneEditor では選択のみ反映される）
         /// </summary>
-        public static void Select(GameObject go, bool showGizmo)
+        public static void Select(GameObject go, bool showGizmo, bool focus = false)
         {
             if (!isAvailable)
             {
@@ -122,6 +137,11 @@ namespace COM3D2.MotionTimelineEditor
 
             try
             {
+                if (_selectWithFocus != null)
+                {
+                    _selectWithFocus(go, showGizmo, focus);
+                    return;
+                }
                 _select(go, showGizmo);
             }
             catch (Exception e)
