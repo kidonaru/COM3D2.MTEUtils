@@ -20,9 +20,9 @@ namespace COM3D2.MotionTimelineEditor
         public static readonly int CLOSE_BUTTON_WIDTH = 20;
         public static readonly int CLOSE_BUTTON_HEIGHT = 16;
         public static readonly int CLOSE_BUTTON_MARGIN = 2;
-        public static readonly int CONNECT_BUTTON_WIDTH = 20;
-        /// <summary>連結中表示のアクセント色。ホスト (EditorSubWindow.ACCENT_COLOR) と揃えること</summary>
-        public static readonly Color CONNECT_ACCENT_COLOR = Color.cyan;
+        public static readonly int LOCK_BUTTON_WIDTH = 20;
+        /// <summary>ロック中表示のアクセント色。ホスト (EditorSubWindow.ACCENT_COLOR) と揃えること</summary>
+        public static readonly Color LOCK_ACCENT_COLOR = Color.cyan;
 
         protected abstract int windowId { get; }
         protected abstract string windowTitle { get; }
@@ -44,6 +44,27 @@ namespace COM3D2.MotionTimelineEditor
         /// <summary>配置の保存。既定では何もしない</summary>
         protected virtual void StorePlacement(int x, int y, int width, int height)
         {
+        }
+
+        /// <summary>ロック状態の復元。既定では永続化しない</summary>
+        protected virtual bool LoadLocked()
+        {
+            return false;
+        }
+
+        /// <summary>ロック状態の保存。既定では何もしない</summary>
+        protected virtual void StoreLocked(bool locked)
+        {
+        }
+
+        /// <summary>ロック中 (移動・リサイズ禁止) か。誤動作防止用</summary>
+        private bool _isLocked;
+        public bool isLocked => _isLocked;
+
+        private void ToggleLock()
+        {
+            _isLocked = !_isLocked;
+            StoreLocked(_isLocked);
         }
 
         /// <summary>タブの表示状態 (アクティブ⇔非アクティブ) が変わったときに呼ばれる</summary>
@@ -115,7 +136,8 @@ namespace COM3D2.MotionTimelineEditor
 
         /// <summary>ホバー中の望ましいカーソル種別。ウィンドウ管理側が仲裁して適用する</summary>
         public ResizeCursor.Kind desiredCursorKind =>
-            _resize.GetCursorKind(_windowRect, _isShowWnd && !_dockTabHidden, windowId);
+            _resize.GetCursorKind(
+                _windowRect, _isShowWnd && !_dockTabHidden && !_isLocked, windowId);
 
         public Rect contentRect => new Rect(
             FRAME, HEADER_HEIGHT,
@@ -136,6 +158,7 @@ namespace COM3D2.MotionTimelineEditor
             _lastStoredRect = _windowRect;
             _lastWidth = (int)_windowRect.width;
             _lastHeight = (int)_windowRect.height;
+            _isLocked = LoadLocked();
         }
 
         /// <summary>
@@ -216,16 +239,11 @@ namespace COM3D2.MotionTimelineEditor
 
         private void DrawWindowInternal(int id)
         {
-            // ボタンの有無でタブ列の使える幅が変わるため、描画前に一度だけ判定する
-            var isConnected = DockingClient.IsConnected(_dockHandle);
-            var showConnectButton = DockingClient.isConnectAvailable &&
-                (isConnected || DockingClient.HasAdjacent(_dockHandle));
-
             DrawContent();
 
             if (_tabTitles != null)
             {
-                DrawTabBar(showConnectButton);
+                DrawTabBar();
             }
 
             // 閉じるボタン (ヘッダー右端)
@@ -234,25 +252,26 @@ namespace COM3D2.MotionTimelineEditor
                 (HEADER_HEIGHT - CLOSE_BUTTON_HEIGHT) * 0.5f,
                 CLOSE_BUTTON_WIDTH,
                 CLOSE_BUTTON_HEIGHT);
-            if (!DrawHeaderButtons(closeRect, showConnectButton, isConnected))
+            if (!DrawHeaderButtons(closeRect))
             {
                 // 閉じられたウィンドウには以降の入力判定を走らせない
                 return;
             }
 
-            HandleDragInput(closeRect);
+            // ロック中は移動・リサイズ・ドッキング起点の入力を受け付けない (誤動作防止)
+            if (!_isLocked)
+            {
+                HandleDragInput(closeRect);
+            }
         }
 
         /// <summary>グループ時のタブ列。構成・見た目は内部窓 (EditorSubWindow.DrawTabBar) と揃える</summary>
-        private void DrawTabBar(bool showConnectButton)
+        private void DrawTabBar()
         {
-            // タブ列がヘッダー右のボタンへ食い込まないよう、利用可能幅を先に確定する
+            // タブ列がヘッダー右のボタン (閉じる + ロック) へ食い込まないよう、利用可能幅を先に確定する
             var available = _windowRect.width - FRAME * 2
-                - (CLOSE_BUTTON_WIDTH + CLOSE_BUTTON_MARGIN * 2);
-            if (showConnectButton)
-            {
-                available -= CONNECT_BUTTON_WIDTH + CLOSE_BUTTON_MARGIN;
-            }
+                - (CLOSE_BUTTON_WIDTH + CLOSE_BUTTON_MARGIN * 2)
+                - (LOCK_BUTTON_WIDTH + CLOSE_BUTTON_MARGIN);
 
             TabBarDrawer.Draw(
                 _tabTitles, _tabActiveIndex,
@@ -264,7 +283,7 @@ namespace COM3D2.MotionTimelineEditor
         /// ヘッダー右のボタン列を描く。閉じるボタンが押されたら false を返す。
         /// 構成・見た目は内部窓 (EditorSubWindow.DrawHeaderButtons) と揃える
         /// </summary>
-        private bool DrawHeaderButtons(Rect closeRect, bool showConnectButton, bool isConnected)
+        private bool DrawHeaderButtons(Rect closeRect)
         {
             if (GUI.Button(closeRect, "x"))
             {
@@ -272,24 +291,20 @@ namespace COM3D2.MotionTimelineEditor
                 return false;
             }
 
-            // コネクトボタン (閉じるボタンの左隣)。見た目・条件は内部窓と揃える
-            if (showConnectButton)
+            // ロックボタン (閉じるボタンの左隣)。見た目・条件は内部窓と揃える
+            var lockRect = new Rect(
+                closeRect.x - LOCK_BUTTON_WIDTH - CLOSE_BUTTON_MARGIN,
+                closeRect.y,
+                LOCK_BUTTON_WIDTH,
+                CLOSE_BUTTON_HEIGHT);
+            var oldColor = GUI.color;
+            // ロック中はアクセントカラーで塗って状態を示す
+            GUI.color = _isLocked ? LOCK_ACCENT_COLOR : Color.white;
+            if (GUI.Button(lockRect, _isLocked ? "◆" : "◇"))
             {
-                var connectRect = new Rect(
-                    closeRect.x - CONNECT_BUTTON_WIDTH - CLOSE_BUTTON_MARGIN,
-                    closeRect.y,
-                    CONNECT_BUTTON_WIDTH,
-                    CLOSE_BUTTON_HEIGHT);
-
-                var oldColor = GUI.color;
-                // 連結中はアクセントカラーで塗って状態を示す
-                GUI.color = isConnected ? CONNECT_ACCENT_COLOR : Color.white;
-                if (GUI.Button(connectRect, isConnected ? "◆" : "◇"))
-                {
-                    DockingClient.ToggleConnect(_dockHandle);
-                }
-                GUI.color = oldColor;
+                ToggleLock();
             }
+            GUI.color = oldColor;
 
             return true;
         }
