@@ -755,6 +755,24 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
+        /// <summary>
+        /// スクロールビューの表示範囲から外れているか。
+        /// 件数の多いリストで画面外の要素の描画を省くために使う
+        /// (位置送りは呼び出し側で NextElement を呼んで必ず行うこと。
+        /// 送らないと以降の行位置とスクロール範囲がずれる)。
+        /// スクロールビュー外は判定材料 (scrollViewRect) が無いため常に false を返す
+        /// </summary>
+        public bool IsOutOfScrollView(Rect drawRect)
+        {
+            if (!isScrollViewEnabled)
+            {
+                return false;
+            }
+
+            return drawRect.position.y + drawRect.height < scrollPosition.y ||
+                drawRect.position.y > scrollPosition.y + scrollViewRect.height;
+        }
+
         public void BeginColor(Color color)
         {
             if (color != defaultColor)
@@ -840,9 +858,15 @@ namespace COM3D2.MotionTimelineEditor
             Color? color = null,
             GUIStyle style = null)
         {
+            var drawRect = GetDrawRect(width, height);
+            if (IsOutOfScrollView(drawRect))
+            {
+                this.NextElement(drawRect);
+                return false;
+            }
+
             BeginEnabled(enabled);
             if (color != null) BeginColor(color.Value);
-            var drawRect = GetDrawRect(width, height);
             var result = GUI.Button(drawRect, text, style ?? gsButton);
             this.NextElement(drawRect);
             if (color != null) EndColor();
@@ -1033,6 +1057,12 @@ namespace COM3D2.MotionTimelineEditor
             Action onClickAction = null)
         {
             var drawRect = GetDrawRect(width, height);
+            if (IsOutOfScrollView(drawRect))
+            {
+                this.NextElement(drawRect);
+                return;
+            }
+
             if (textColor != null) BeginColor(textColor.Value);
             GUI.Label(drawRect, text, style ?? gsLabel);
             if (textColor != null) EndColor();
@@ -1941,8 +1971,7 @@ namespace COM3D2.MotionTimelineEditor
         {
             var drawRect = GetDrawRect(width, height);
 
-            if (drawRect.position.y + drawRect.height < scrollPosition.y ||
-                drawRect.position.y > scrollPosition.y + scrollViewRect.height)
+            if (IsOutOfScrollView(drawRect))
             {
                 NextElement(drawRect);
                 return false;
@@ -2044,8 +2073,7 @@ namespace COM3D2.MotionTimelineEditor
         {
             var drawRect = GetDrawRect(width, height);
 
-            if (drawRect.position.y + drawRect.height < scrollPosition.y ||
-                drawRect.position.y > scrollPosition.y + scrollViewRect.height)
+            if (IsOutOfScrollView(drawRect))
             {
                 NextElement(drawRect);
                 return false;
