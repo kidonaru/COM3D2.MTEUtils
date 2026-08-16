@@ -162,12 +162,17 @@ namespace COM3D2.MotionTimelineEditor
         }
 
         /// <summary>
-        /// ウィンドウ矩形を画面内へ収める。
-        /// windowRect はプロパティで ref 渡しできないため、派生側の重複を避けてここに置く
+        /// ウィンドウが画面外へ出ないようクランプする。
+        /// windowRect はプロパティで ref 渡しできないため、派生側の重複を避けてここに置く。
+        /// 「ヘッダーが見えていればよい」規則はホスト内部窓 (EditorSubWindow) と揃えること。
+        /// ウィンドウ全体を画面内へ収める規則にすると、画面下へはみ出したグループへ
+        /// ドッキングしていた窓だけ再表示時に位置がずれ、ホスト側の自動再ドッキング
+        /// (ヘッダー位置の一致判定) を外してドッキングが復帰しなくなる
         /// </summary>
         protected void AdjustPosition()
         {
-            MTEUtils.AdjustWindowPosition(ref _windowRect);
+            _windowRect.x = Mathf.Clamp(_windowRect.x, -_windowRect.width + 100, Screen.width - 100);
+            _windowRect.y = Mathf.Clamp(_windowRect.y, 0, Screen.height - HEADER_HEIGHT);
         }
 
         private void RegisterDocking()
@@ -229,8 +234,7 @@ namespace COM3D2.MotionTimelineEditor
             // ホスト側が群のバウンディングボックスでクランプする (内部窓と同じ流儀)
             if (!DockingClient.IsConnected(_dockHandle))
             {
-                _windowRect.x = Mathf.Clamp(_windowRect.x, -_windowRect.width + 100, Screen.width - 100);
-                _windowRect.y = Mathf.Clamp(_windowRect.y, 0, Screen.height - HEADER_HEIGHT);
+                AdjustPosition();
             }
 
             // ウィンドウ上のホイール操作をゲーム側へ流さない
