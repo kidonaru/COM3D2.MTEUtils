@@ -153,10 +153,12 @@ namespace COM3D2.MotionTimelineEditor
         private bool _validated = false;
 
         /// <summary>
-        /// 必須デリゲートの設定漏れを最初の 1 回だけ検査する。
+        /// 必須デリゲートの設定漏れを検査する。
         /// 未設定のまま描くと内部の奥で NullReferenceException になり原因が分かりにくいため、
         /// 何が足りないかを名指しで知らせる。
-        /// OnGUI から毎フレーム投げるとログが溢れるので検査は 1 回きりにする
+        /// 一度通ればもう変わらないので、成功したときだけ以降の検査を省く
+        /// (失敗時に省いてしまうと、例外を握り潰す呼び出し元では
+        /// 2 フレーム目以降が無名の NullReferenceException に戻ってしまう)
         /// </summary>
         private void ValidateDelegates()
         {
@@ -164,7 +166,6 @@ namespace COM3D2.MotionTimelineEditor
             {
                 return;
             }
-            _validated = true;
 
             var missing = new List<string>();
             if (getId == null) missing.Add("getId");
@@ -182,6 +183,8 @@ namespace COM3D2.MotionTimelineEditor
                 throw new InvalidOperationException(
                     "GUITreeView のデリゲートが設定されていません: " + string.Join(", ", missing.ToArray()));
             }
+
+            _validated = true;
         }
 
         /// <summary>展開状態と検索条件から、実際に表示する行を組み立てる</summary>
@@ -413,7 +416,10 @@ namespace COM3D2.MotionTimelineEditor
         {
             for (var i = 0; i < _rows.Count; i++)
             {
-                if (isSelected(_rows[i].node))
+                // 破棄済みノードを先に弾く。表示範囲外の行は生存確認を通っておらず、
+                // Unity の GameObject/Component は破棄済みでも null と等値になるため、
+                // 「未選択」を破棄済み行と取り違えて選択の起点がずれるのを防ぐ
+                if (isAlive(_rows[i].node) && isSelected(_rows[i].node))
                 {
                     return i;
                 }
