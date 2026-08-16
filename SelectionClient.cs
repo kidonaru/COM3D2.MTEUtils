@@ -6,8 +6,8 @@ namespace COM3D2.MotionTimelineEditor
 {
     /// <summary>
     /// SceneEditor プラグインの SelectionManager へのリフレクションブリッジ。
-    /// showGizmo = false で選択すると EW の Inspector には選択が反映されるが
-    /// EW 側ギズモは表示されない（呼び出し側が自前ギズモを持つケース用）。
+    /// showGizmo = false で選択すると SceneEditor の Inspector には選択が反映されるが
+    /// SceneEditor 側ギズモは表示されない（呼び出し側が自前ギズモを持つケース用）。
     /// SceneEditor が不在・旧バージョン（2 引数 Select が無い）の場合は
     /// isAvailable が false になり、呼び出し側は同期しない
     /// </summary>
@@ -28,7 +28,7 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
-        /// <summary>EW 側の現在の選択オブジェクト。EW 不在・取得失敗時は null</summary>
+        /// <summary>SceneEditor 側の現在の選択オブジェクト。SceneEditor 不在・取得失敗時は null</summary>
         public static GameObject selectedObject
         {
             get
@@ -72,7 +72,7 @@ namespace COM3D2.MotionTimelineEditor
             try
             {
                 var instanceProp = type.GetProperty("instance", BindingFlags.Public | BindingFlags.Static);
-                // 2 引数オーバーロードを明示指定する。旧 EW（1 引数のみ）では null になり
+                // 2 引数オーバーロードを明示指定する。旧バージョンの SceneEditor（1 引数のみ）では null になり
                 // 同期自体を無効化する（1 引数へ落とすとギズモが二重表示されるため）
                 var select = type.GetMethod("Select", BindingFlags.Public | BindingFlags.Instance,
                     null, new[] { typeof(GameObject), typeof(bool) }, null);
@@ -110,8 +110,8 @@ namespace COM3D2.MotionTimelineEditor
         }
 
         /// <summary>
-        /// EW 側の選択を設定する。go = null で選択解除。
-        /// showGizmo = false なら EW 側ギズモを抑止する
+        /// SceneEditor 側の選択を設定する。go = null で選択解除。
+        /// showGizmo = false なら SceneEditor 側ギズモを抑止する
         /// </summary>
         public static void Select(GameObject go, bool showGizmo)
         {
@@ -131,8 +131,8 @@ namespace COM3D2.MotionTimelineEditor
         }
 
         /// <summary>
-        /// EW 側の選択変更イベントを購読する。登録できたら true。
-        /// EW 不在時は false を返すので、呼び出し側は true になるまで再試行してよい
+        /// SceneEditor 側の選択変更イベントを購読する。登録できたら true。
+        /// SceneEditor 不在時は false を返すので、呼び出し側は true になるまで再試行してよい
         /// </summary>
         public static bool AddSelectionChangedHandler(Action<GameObject> handler)
         {

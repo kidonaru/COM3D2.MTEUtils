@@ -19,7 +19,7 @@ namespace COM3D2.MotionTimelineEditor
 
     /// <summary>
     /// ギズモの操作種別 (なし/移動/回転/拡縮) と軸空間 (Local/Global) の切替行。
-    /// EW の Inspector と MTE のモデル操作ウィンドウで共通に使う
+    /// SceneEditor の Inspector と MTE のモデル操作ウィンドウで共通に使う
     /// </summary>
     public static class GizmoToolRowDrawer
     {

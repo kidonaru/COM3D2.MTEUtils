@@ -6,9 +6,9 @@ namespace COM3D2.MotionTimelineEditor
 {
     /// <summary>
     /// SceneEditor プラグインの InspectorHost へのリフレクションブリッジ。
-    /// 登録すると、EW Inspector で対象オブジェクト選択時に内容描画が丸ごと委譲される。
+    /// 登録すると、SceneEditor Inspector で対象オブジェクト選択時に内容描画が丸ごと委譲される。
     /// SceneEditor が不在・旧バージョンの場合は isAvailable が false になり、
-    /// 呼び出し側は登録しない (EW Inspector は従来描画のまま)
+    /// 呼び出し側は登録しない (SceneEditor Inspector は従来描画のまま)
     /// </summary>
     public static class InspectorHostClient
     {
