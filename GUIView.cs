@@ -1795,7 +1795,8 @@ namespace COM3D2.MotionTimelineEditor
             float width,
             float height,
             int currentIndex,
-            float buttonHeight)
+            float buttonHeight,
+            GUIStyle style = null)
         {
             int selectedIndex = -1;
             var contentHeight = (buttonHeight + margin) * items.Count;
@@ -1818,7 +1819,7 @@ namespace COM3D2.MotionTimelineEditor
                 var color = i == currentIndex ? option.accentColor : Color.white;
                 var name = getName(items[i], i);
                 var enabled = getEnabled != null ? getEnabled(items[i], i) : true;
-                if (DrawButton(name, buttonWidth, buttonHeight, enabled, color))
+                if (DrawButton(name, buttonWidth, buttonHeight, enabled, color, style))
                 {
                     selectedIndex = i;
                     break;
