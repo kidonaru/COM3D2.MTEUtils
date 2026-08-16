@@ -297,6 +297,14 @@ namespace COM3D2.MotionTimelineEditor
         public Rect scrollViewRect;
         public Vector2 scrollPosition;
 
+        /// <summary>
+        /// スクロールビュー開始前の layoutMaxPos。ビュー内の layoutMaxPos は
+        /// 内容座標なので、そのまま外へ持ち出すと EndLayout が currentPos を
+        /// 内容座標へ飛ばしてしまう。EndScrollView で戻すために退避しておく
+        /// (scrollViewRect と同様、ネストしたスクロールビューには対応しない)
+        /// </summary>
+        private Vector2 _savedLayoutMaxPos;
+
         public bool isScrollViewEnabled;
         public float labelWidth = 100;
         public Vector2 layoutMaxPos;
@@ -691,6 +699,8 @@ namespace COM3D2.MotionTimelineEditor
 
             this.isScrollViewEnabled = true;
             this.currentPos = Vector2.zero;
+            this._savedLayoutMaxPos = this.layoutMaxPos;
+            this.layoutMaxPos = Vector2.zero;
         }
 
         public readonly static Rect AutoScrollViewRect = new Rect(0, 0, -1, -1);
@@ -723,6 +733,7 @@ namespace COM3D2.MotionTimelineEditor
 
             this.isScrollViewEnabled = true;
             this.currentPos = Vector2.zero;
+            this._savedLayoutMaxPos = this.layoutMaxPos;
             this.layoutMaxPos = Vector2.zero;
         }
 
@@ -732,6 +743,10 @@ namespace COM3D2.MotionTimelineEditor
 
             GUI.EndScrollView();
             this.isScrollViewEnabled = false;
+
+            // 内容座標のまま残すと EndLayout が currentPos をビュー外へ飛ばすため、
+            // 開始前の値に戻してから NextElement でスクロールビュー分だけ進める
+            this.layoutMaxPos = _savedLayoutMaxPos;
 
             currentPos = scrollViewRect.position;
             NextElement(scrollViewRect);
