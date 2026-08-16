@@ -90,12 +90,12 @@ namespace COM3D2.MotionTimelineEditor
                 }
                 else
                 {
-                    // 非アクティブ: 暗い背景 + グレー文字。ホバー中は中間の明るさにする。
-                    // 文字は半透明だと背景に埋もれて読みにくいため不透明のまま明度だけ変える
+                    // 非アクティブ: 暗い背景。ホバー中は中間の明るさにする。
+                    // 文字色はアクティブと同じ白にして、区別は背景の明暗だけで付ける
                     var hovered = tabRect.Contains(e.mousePosition);
                     GUI.color = new Color(0f, 0f, 0f, hovered ? 0.15f : 0.4f);
                     GUI.DrawTexture(tabRect, Texture2D.whiteTexture);
-                    GUI.color = hovered ? new Color(0.9f, 0.9f, 0.9f) : new Color(0.7f, 0.7f, 0.7f);
+                    GUI.color = Color.white;
                 }
                 GUI.Label(tabRect, GetTruncatedTitle(titles[i], tabWidth), tabLabelStyle);
                 GUI.color = oldColor;
