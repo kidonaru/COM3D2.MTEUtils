@@ -325,8 +325,8 @@ namespace COM3D2.MotionTimelineEditor
             var startTime = Time.realtimeSinceStartup;
             while (!IsMenuDataBaseReady())
             {
-                // 待ち続けると呼び出し元のロード状態が戻らず、以後アイテム更新自体ができなくなる。
-                // 修正前と同じ「不完全な一覧」に留めるため、上限時間で打ち切って先へ進める
+                // 待ち続けると呼び出し元のロード状態が戻らず、以後アイテム更新自体ができなくなるため、
+                // 上限時間で打ち切って先へ進める
                 if (Time.realtimeSinceStartup - startTime > MenuDataBaseReadyTimeout)
                 {
                     LogWarning("MenuDataBaseの構築完了を待機できませんでした。アイテムの一部が表示されない可能性があります");
