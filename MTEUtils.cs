@@ -294,6 +294,50 @@ namespace COM3D2.MotionTimelineEditor
             action?.Invoke();
         }
 
+        /// <summary>MenuDataBaseの構築完了を待つ上限時間（秒）</summary>
+        private const float MenuDataBaseReadyTimeout = 60f;
+
+        /// <summary>
+        /// MenuDataBaseの非同期構築の完了を待ってからアクションを実行する
+        /// </summary>
+        public static void ExecuteAfterMenuDataBaseReady(Action action)
+        {
+            if (IsMenuDataBaseReady())
+            {
+                action?.Invoke();
+                return;
+            }
+
+            GameMain.Instance.StartCoroutine(ExecuteAfterMenuDataBaseReadyInternal(action));
+        }
+
+        private static bool IsMenuDataBaseReady()
+        {
+            var menuDataBase = GameMain.Instance?.MenuDataBase;
+            return menuDataBase != null && menuDataBase.JobFinished();
+        }
+
+        private static IEnumerator ExecuteAfterMenuDataBaseReadyInternal(Action action)
+        {
+            // 構築完了前はGetDataSize()が途中までの件数しか返さず、公式アイテムを取りこぼす
+            LogDebug("MenuDataBaseの構築完了を待機します");
+
+            var startTime = Time.realtimeSinceStartup;
+            while (!IsMenuDataBaseReady())
+            {
+                // 待ち続けると呼び出し元のロード状態が戻らず、以後アイテム更新自体ができなくなる。
+                // 修正前と同じ「不完全な一覧」に留めるため、上限時間で打ち切って先へ進める
+                if (Time.realtimeSinceStartup - startTime > MenuDataBaseReadyTimeout)
+                {
+                    LogWarning("MenuDataBaseの構築完了を待機できませんでした。アイテムの一部が表示されない可能性があります");
+                    break;
+                }
+                yield return null;
+            }
+
+            action?.Invoke();
+        }
+
         /// <summary>
         /// ファイルが存在するか判定する（MOD用ファイルシステムを優先し、無ければ本体側を確認）
         /// </summary>
