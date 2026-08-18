@@ -324,11 +324,20 @@ namespace COM3D2.MotionTimelineEditor
             return GameUty.FileSystem != null && GameUty.FileSystem.IsExistentFile(fileName);
         }
 
-        public static bool IsReady(this Maid maid)
+        /// <summary>
+        /// ボーン等の参照が揃っていて安全に触れる状態か。
+        /// プロパティ適用中（IsAllProcPropBusy）でも true を返すため、
+        /// 適用中の一時的な脱落で一覧が揺れると困る場面（GetReadyMaidList 等）ではこちらを使う
+        /// </summary>
+        public static bool IsBodyReady(this Maid maid)
         {
             return (maid != null && maid.body0 != null && maid.body0.m_Bones != null &&
-                    maid.body0.trsEyeL != null && maid.body0.trsEyeR != null &&
-                    !maid.IsAllProcPropBusy);
+                    maid.body0.trsEyeL != null && maid.body0.trsEyeR != null);
+        }
+
+        public static bool IsReady(this Maid maid)
+        {
+            return maid.IsBodyReady() && !maid.IsAllProcPropBusy;
         }
 
         public static List<Maid> GetReadyMaidList()
@@ -340,7 +349,7 @@ namespace COM3D2.MotionTimelineEditor
             for (int i = 0; i < maidCount; i++)
             {
                 var maid = characterMgr.GetMaid(i);
-                if (maid != null && maid.Visible && maid.IsReady())
+                if (maid != null && maid.Visible && maid.IsBodyReady())
                 {
                     result.Add(maid);
                 }
@@ -350,7 +359,7 @@ namespace COM3D2.MotionTimelineEditor
             for (int j = 0; j < stockMaidCount; j++)
             {
                 var maid = characterMgr.GetStockMaid(j);
-                if (maid != null && maid.Visible && maid.IsReady() && !result.Contains(maid))
+                if (maid != null && maid.Visible && maid.IsBodyReady() && !result.Contains(maid))
                 {
                     result.Add(maid);
                 }
