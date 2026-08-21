@@ -1148,7 +1148,8 @@ namespace COM3D2.MotionTimelineEditor
             float width,
             float height,
             Action<string> onChanged = null,
-            bool hasNewLine = false)
+            bool hasNewLine = false,
+            string controlName = null)
         {
             if (!string.IsNullOrEmpty(label))
             {
@@ -1166,6 +1167,13 @@ namespace COM3D2.MotionTimelineEditor
             if (onChanged == null) GUI.enabled = false;
 
             var drawRect = GetDrawRect(width, height);
+
+            // 名前を付けておくとコントロール ID がずれてもフォーカスを復帰できる (GUI.FocusControl)
+            if (!string.IsNullOrEmpty(controlName))
+            {
+                GUI.SetNextControlName(controlName);
+            }
+
             var newText = text;
             if (hasNewLine)
             {
@@ -1208,6 +1216,7 @@ namespace COM3D2.MotionTimelineEditor
             public int maxLines;
             public bool disabled;
             public bool hiddenButton;
+            public string controlName;
         }
 
         public bool DrawTextField(TextFieldOption option)
@@ -1235,7 +1244,8 @@ namespace COM3D2.MotionTimelineEditor
                     fieldWidth,
                     height,
                     option.onChanged,
-                    option.maxLines > 1);
+                    option.maxLines > 1,
+                    option.controlName);
 
                 if (!option.hiddenButton)
                 {
