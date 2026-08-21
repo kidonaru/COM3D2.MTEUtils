@@ -330,27 +330,48 @@ namespace COM3D2.MotionTimelineEditor
         /// </summary>
         private void DrawCircle(Camera camera, Vector3 center, Vector3 axis, float radius, Color color)
         {
-            var toCamera = camera.transform.position - center;
-
-            // 軸に垂直かつカメラ方向に依存した基底を作ると、半周がそのまま手前側になる
-            var basis1 = Vector3.Cross(axis, toCamera);
-            if (basis1.sqrMagnitude < DegenerateEpsilon)
-            {
-                CalcCircleBasis(axis, out basis1, out _);
-            }
-            basis1 = basis1.normalized * radius;
-            var basis2 = Vector3.Cross(basis1, axis).normalized * radius;
+            Vector3 basis1, basis2;
+            CalcVisibleArcBasis(camera, center, axis, radius, out basis1, out basis2);
 
             GL.Begin(GL.LINES);
             GL.Color(color);
             for (var i = 0; i < CircleSegments; i++)
             {
-                var a0 = i * Mathf.PI / CircleSegments;
-                var a1 = (i + 1) * Mathf.PI / CircleSegments;
-                GL.Vertex(center + basis1 * Mathf.Cos(a0) + basis2 * Mathf.Sin(a0));
-                GL.Vertex(center + basis1 * Mathf.Cos(a1) + basis2 * Mathf.Sin(a1));
+                GL.Vertex(ArcPoint(center, basis1, basis2, ArcAngle(i)));
+                GL.Vertex(ArcPoint(center, basis1, basis2, ArcAngle(i + 1)));
             }
             GL.End();
+        }
+
+        /// <summary>
+        /// 手前側の半周を張る基底 (長さは radius 込み)。
+        /// 軸に垂直かつカメラ方向に依存した基底を取ると、角度 0〜π がそのまま手前側になる。
+        /// 描画とヒット判定で同じ弧を使うため共有する
+        /// </summary>
+        private static void CalcVisibleArcBasis(
+            Camera camera, Vector3 center, Vector3 axis, float radius,
+            out Vector3 basis1, out Vector3 basis2)
+        {
+            var toCamera = camera.transform.position - center;
+
+            basis1 = Vector3.Cross(axis, toCamera);
+            if (basis1.sqrMagnitude < DegenerateEpsilon)
+            {
+                CalcCircleBasis(axis, out basis1, out _);
+            }
+            basis1 = basis1.normalized * radius;
+            basis2 = Vector3.Cross(basis1, axis).normalized * radius;
+        }
+
+        /// <summary>半周を CircleSegments 等分したときの index 番目の角度 (rad)</summary>
+        private static float ArcAngle(int index)
+        {
+            return index * Mathf.PI / CircleSegments;
+        }
+
+        private static Vector3 ArcPoint(Vector3 center, Vector3 basis1, Vector3 basis2, float angle)
+        {
+            return center + basis1 * Mathf.Cos(angle) + basis2 * Mathf.Sin(angle);
         }
 
         /// <summary>回転面の直交基底。軸が真上を向いていると外積が潰れるため別の軸で取り直す</summary>
@@ -527,20 +548,22 @@ namespace COM3D2.MotionTimelineEditor
             return true;
         }
 
+        /// <summary>
+        /// 見えている半周までの画面距離。描画と同じ弧で判定しないと、
+        /// 描かれていない裏側の半周まで掴めてしまう
+        /// </summary>
         private float DistanceToCircle(
             Camera camera, Vector2 rtPoint, Vector3 center, Vector3 axis, float radius)
         {
             Vector3 basis1, basis2;
-            CalcCircleBasis(axis, out basis1, out basis2);
+            CalcVisibleArcBasis(camera, center, axis, radius, out basis1, out basis2);
 
             var best = float.MaxValue;
             for (var i = 0; i < CircleSegments; i++)
             {
-                var a0 = i * Mathf.PI * 2f / CircleSegments;
-                var a1 = (i + 1) * Mathf.PI * 2f / CircleSegments;
                 bool v0, v1;
-                var p0 = ToRtPoint(camera, center + (basis1 * Mathf.Cos(a0) + basis2 * Mathf.Sin(a0)) * radius, out v0);
-                var p1 = ToRtPoint(camera, center + (basis1 * Mathf.Cos(a1) + basis2 * Mathf.Sin(a1)) * radius, out v1);
+                var p0 = ToRtPoint(camera, ArcPoint(center, basis1, basis2, ArcAngle(i)), out v0);
+                var p1 = ToRtPoint(camera, ArcPoint(center, basis1, basis2, ArcAngle(i + 1)), out v1);
                 if (v0 && v1)
                 {
                     best = Mathf.Min(best, DistanceToSegment(rtPoint, p0, p1));
