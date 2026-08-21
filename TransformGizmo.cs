@@ -79,6 +79,9 @@ namespace COM3D2.MotionTimelineEditor
         private Vector3 _dragStartScale;
         private float _dragStartParam;   // 軸上パラメータ or 回転角
         private Vector3 _dragStartPlanePoint;  // 面ドラッグ開始時の面上の交点
+        // ドラッグ開始時の軸方向。Local モードでは軸が target の回転に追従するため、
+        // 現在値を使うと回転ドラッグで軸自体が動いてフィードバックし対象が暴れる
+        private Vector3 _dragAxisDir;
 
         /// <summary>GL 用マテリアルを遅延生成する。シェーダ不在なら false</summary>
         public static bool EnsureMaterial()
@@ -440,6 +443,8 @@ namespace COM3D2.MotionTimelineEditor
             _dragCamera = camera;
             _dragAxis = bestAxis;
             _dragPlane = bestPlane;
+            // 面ドラッグ (bestAxis < 0) は軸方向を使う経路を通らないため zero でよい
+            _dragAxisDir = bestAxis >= 0 ? AxisDirection(bestAxis) : Vector3.zero;
             _dragStartPosition = target.position;
             _dragStartRotation = target.rotation;
             _dragStartScale = target.localScale;
@@ -548,7 +553,7 @@ namespace COM3D2.MotionTimelineEditor
         private float AxisParamAt(Camera camera, Vector2 rtPoint)
         {
             var ray = camera.ScreenPointToRay(new Vector3(rtPoint.x, rtPoint.y, 0f));
-            var axisDir = AxisDirection(_dragAxis);
+            var axisDir = _dragAxisDir;
 
             // 2 直線の最近接点: 軸上のパラメータ t を解く。
             // 標準形は w = 軸原点 - レイ原点。符号を逆にするとドラッグ方向が反転するので注意
@@ -567,7 +572,7 @@ namespace COM3D2.MotionTimelineEditor
         /// <summary>回転面上でのマウス位置の角度 (度)</summary>
         private float RotationAngleAt(Camera camera, Vector2 rtPoint)
         {
-            var axis = AxisDirection(_dragAxis);
+            var axis = _dragAxisDir;
             var plane = new Plane(axis, _dragStartPosition);
             var ray = camera.ScreenPointToRay(new Vector3(rtPoint.x, rtPoint.y, 0f));
 
@@ -603,14 +608,14 @@ namespace COM3D2.MotionTimelineEditor
                 case GizmoTool.Move:
                 {
                     var t = AxisParamAt(_dragCamera, rtPoint) - _dragStartParam;
-                    target.position = _dragStartPosition + AxisDirection(_dragAxis) * t;
+                    target.position = _dragStartPosition + _dragAxisDir * t;
                     break;
                 }
                 case GizmoTool.Rotate:
                 {
                     var angle = RotationAngleAt(_dragCamera, rtPoint) - _dragStartParam;
                     target.rotation =
-                        Quaternion.AngleAxis(angle, AxisDirection(_dragAxis)) * _dragStartRotation;
+                        Quaternion.AngleAxis(angle, _dragAxisDir) * _dragStartRotation;
                     break;
                 }
                 case GizmoTool.Scale:
