@@ -154,12 +154,21 @@ namespace COM3D2.MotionTimelineEditor
             return parts.Aggregate(Path.Combine);
         }
 
+        /// <summary>
+        /// ゲームの SysDlg で通知ダイアログを出す。
+        /// SysDlg は NGUI なのでプラグインの IMGUI ウィンドウより奥に描画される。
+        /// IMGUI ウィンドウより手前に出したい場合は DialogPopupWindow.ShowDialog を使うこと
+        /// </summary>
         public static void ShowDialog(string message)
         {
             GameMain.Instance.SysDlg.Show(
                 message, SystemDialog.TYPE.OK, null, null);
         }
 
+        /// <summary>
+        /// ゲームの SysDlg で確認ダイアログを出す。
+        /// IMGUI ウィンドウより手前に出したい場合は DialogPopupWindow.ShowConfirmDialog を使うこと
+        /// </summary>
         public static void ShowConfirmDialog(
             string message,
             SystemDialog.OnClick onYes,
