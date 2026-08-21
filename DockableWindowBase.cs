@@ -92,6 +92,10 @@ namespace COM3D2.MotionTimelineEditor
                 else
                 {
                     UnregisterDocking();
+
+                    // 処理されないまま残った要求が、次の表示で無関係に発火しないよう捨てる
+                    _activateRetryFrames = 0;
+                    _bringToFront = false;
                 }
             }
         }
@@ -115,6 +119,31 @@ namespace COM3D2.MotionTimelineEditor
 
         /// <summary>ドッキング中に非アクティブタブとして畳まれていないか (従属ポップアップの追従判定用)</summary>
         public bool isTabVisible => !_dockTabHidden;
+
+        /// <summary>Activate() の要求が残っているフレーム数。0 は要求なし</summary>
+        private int _activateRetryFrames;
+
+        /// <summary>
+        /// アクティブ化要求を諦めるまでの猶予 (フレーム)。
+        /// 再表示直後はホストの自動再ドッキング待ちでグループへ入るまで時間がかかるため、
+        /// その待ちを吸収できる長さ (60fps でおよそ 1 秒) を独自に取る。
+        /// ホスト側の猶予と厳密に一致させる必要はない (長くても空振りが続くだけ)
+        /// </summary>
+        private const int ACTIVATE_RETRY_FRAMES = 60;
+
+        /// <summary>次の OnGUI で最前面へ持ち上げるか</summary>
+        private bool _bringToFront;
+
+        /// <summary>
+        /// ウィンドウを前面へ出す。ドッキング中は自分のタブをアクティブにし、
+        /// standalone では最前面へ持ち上げる。
+        /// ハンドル生成・グループ復帰を待つ必要があるため、要求だけ立てて Update で処理する
+        /// </summary>
+        public virtual void Activate()
+        {
+            isShowWnd = true;
+            _activateRetryFrames = ACTIVATE_RETRY_FRAMES;
+        }
 
         private readonly WindowResizeController _resize = new WindowResizeController();
 
@@ -223,6 +252,12 @@ namespace COM3D2.MotionTimelineEditor
             if (!_isShowWnd || _dockTabHidden)
             {
                 return;
+            }
+
+            if (_bringToFront)
+            {
+                _bringToFront = false;
+                GUI.BringWindowToFront(windowId);
             }
 
             // グループ加入中はタブバーを自前描画するのでタイトルは空にする
@@ -368,6 +403,8 @@ namespace COM3D2.MotionTimelineEditor
 
         public virtual void Update()
         {
+            UpdateActivateRequest();
+
             if (_resize.UpdateResize(ref _windowRect, minWidth, minHeight))
             {
                 OnResizeEnd();
@@ -387,6 +424,43 @@ namespace COM3D2.MotionTimelineEditor
                 _lastWidth = (int)_windowRect.width;
                 _lastHeight = (int)_windowRect.height;
                 OnSizeChanged(_lastWidth, _lastHeight);
+            }
+        }
+
+        /// <summary>
+        /// アクティブ化要求の処理。非アクティブタブ中は OnGUI が走らないためここで行う。
+        /// グループへ加入するまでは ActivateTab が空振りするので猶予いっぱい再試行する
+        /// </summary>
+        private void UpdateActivateRequest()
+        {
+            if (_activateRetryFrames <= 0)
+            {
+                return;
+            }
+            _activateRetryFrames--;
+
+            // 表示条件を満たさない窓 (別モード中など) は諦める
+            if (!_isShowWnd)
+            {
+                _activateRetryFrames = 0;
+                return;
+            }
+
+            _bringToFront = true;
+
+            if (_dockHandle == null)
+            {
+                // standalone は最前面化だけで足りる
+                _activateRetryFrames = 0;
+                return;
+            }
+
+            DockingClient.ActivateTab(_dockHandle);
+
+            // グループ加入前は空振りするため、タブ状態が push されるまで粘る
+            if (_tabTitles != null)
+            {
+                _activateRetryFrames = 0;
             }
         }
 

@@ -38,6 +38,10 @@ namespace COM3D2.MotionTimelineEditor
         // 旧ホストではリサイズ吸着だけが無効になるようにする
         private static Func<object, Rect, int, Rect> _snapResize;
 
+        // タブのアクティブ化 (ホストが旧バージョンだと存在しない)。
+        // 単独で完結する機能なのでスナップ/コネクト系とは別に検出する
+        private static Action<object> _activateTab;
+
         // タブバー描画系 (ホストが旧バージョンだと存在しない)。ペアで一括検出する
         private static Action<object, Action<string[], int>> _enableTabBar;
         private static Action<object, int, float, float> _notifyTabMouseDown;
@@ -68,6 +72,16 @@ namespace COM3D2.MotionTimelineEditor
             {
                 Initialize();
                 return _enableTabBar != null;
+            }
+        }
+
+        /// <summary>タブのアクティブ化が使えるか (ホストが対応バージョンか)</summary>
+        public static bool isActivateTabAvailable
+        {
+            get
+            {
+                Initialize();
+                return _activateTab != null;
             }
         }
 
@@ -153,6 +167,14 @@ namespace COM3D2.MotionTimelineEditor
                     _notifyTabMouseDown = (Action<object, int, float, float>)Delegate.CreateDelegate(
                         typeof(Action<object, int, float, float>), notifyTab);
                 }
+
+                // タブのアクティブ化も後発 API のため任意
+                var activateTab = type.GetMethod("ActivateTab", BindingFlags.Public | BindingFlags.Static);
+                if (activateTab != null)
+                {
+                    _activateTab = (Action<object>)Delegate.CreateDelegate(
+                        typeof(Action<object>), activateTab);
+                }
             }
             catch (Exception e)
             {
@@ -170,6 +192,7 @@ namespace COM3D2.MotionTimelineEditor
                 _snapResize = null;
                 _enableTabBar = null;
                 _notifyTabMouseDown = null;
+                _activateTab = null;
             }
         }
 
@@ -301,6 +324,18 @@ namespace COM3D2.MotionTimelineEditor
             if (handle != null && isTabBarAvailable)
             {
                 _notifyTabMouseDown(handle, tabIndex, x, y);
+            }
+        }
+
+        /// <summary>
+        /// 自窓のタブをアクティブへ切り替える。未対応ホスト・未登録なら何もしない。
+        /// 押下由来の NotifyTabMouseDown と違い、つまみドラッグ候補は記録されない
+        /// </summary>
+        public static void ActivateTab(object handle)
+        {
+            if (handle != null && isActivateTabAvailable)
+            {
+                _activateTab(handle);
             }
         }
     }
