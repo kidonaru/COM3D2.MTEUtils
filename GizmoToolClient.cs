@@ -15,6 +15,8 @@ namespace COM3D2.MotionTimelineEditor
         private static PropertyInfo _toolProp;
         private static PropertyInfo _useLocalSpaceProp;
         private static Type _hostToolType;
+        private static PropertyInfo _targetTypeProp;
+        private static Type _hostTargetTypeType;
         private static bool _initialized;
         private static bool _failed;
 
@@ -110,6 +112,61 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
+        /// <summary>
+        /// ホストが表示対象プロパティを持っているか。
+        /// 旧版 SceneEditor には存在しないため、これだけ欠けても
+        /// 操作種別・軸空間の同期は止めない (isAvailable とは別に持つ)
+        /// </summary>
+        public static bool isTargetTypeAvailable
+        {
+            get
+            {
+                Initialize();
+                return _targetTypeProp != null && !_failed;
+            }
+        }
+
+        /// <summary>
+        /// SceneEditor 側のギズモ表示対象。取得失敗時は SceneEditor の既定と同じ All。
+        /// 失敗時の扱いは tool と同じ (isTargetTypeAvailable で判別する)
+        /// </summary>
+        public static GizmoTargetType targetType
+        {
+            get
+            {
+                if (!isTargetTypeAvailable)
+                {
+                    return GizmoTargetType.All;
+                }
+
+                try
+                {
+                    return (GizmoTargetType)Convert.ToInt32(_targetTypeProp.GetValue(null, null));
+                }
+                catch (Exception e)
+                {
+                    FailTargetType("表示対象の取得に失敗しました", e);
+                    return GizmoTargetType.All;
+                }
+            }
+            set
+            {
+                if (!isTargetTypeAvailable)
+                {
+                    return;
+                }
+
+                try
+                {
+                    _targetTypeProp.SetValue(null, Enum.ToObject(_hostTargetTypeType, (int)value), null);
+                }
+                catch (Exception e)
+                {
+                    FailTargetType("表示対象の設定に失敗しました", e);
+                }
+            }
+        }
+
         private static void Initialize()
         {
             if (_initialized)
@@ -142,6 +199,28 @@ namespace COM3D2.MotionTimelineEditor
             _toolProp = toolProp;
             _useLocalSpaceProp = spaceProp;
             _hostToolType = toolProp.PropertyType;
+
+            // 表示対象は後から追加されたプロパティ。旧版 SceneEditor には無いため、
+            // 見つからなくても他の同期は続けられるように任意扱いにする
+            var targetProp = type.GetProperty("gizmoTargetType", BindingFlags.Public | BindingFlags.Static);
+            if (targetProp != null && targetProp.PropertyType.IsEnum && targetProp.CanWrite)
+            {
+                _targetTypeProp = targetProp;
+                _hostTargetTypeType = targetProp.PropertyType;
+            }
+            else
+            {
+                MTEUtils.LogWarning("GizmoToolClient: GizmoRenderer に表示対象プロパティが見つかりませんでした (表示対象は同期しません)");
+            }
+        }
+
+        /// <summary>
+        /// 表示対象だけを無効化する。操作種別・軸空間の同期は生かしたままにする
+        /// </summary>
+        private static void FailTargetType(string message, Exception e)
+        {
+            MTEUtils.LogWarning("GizmoToolClient: " + message + ": " + e.Message);
+            _targetTypeProp = null;
         }
 
         /// <summary>
