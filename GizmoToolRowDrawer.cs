@@ -15,6 +15,8 @@ namespace COM3D2.MotionTimelineEditor
         public Action<GizmoTool> setTool;
         public Func<bool> getUseLocalSpace;
         public Action<bool> setUseLocalSpace;
+        /// <summary>軸空間ボタンのワールドアイコン。null ならテキスト表示にフォールバックする</summary>
+        public Texture2D globalIcon;
     }
 
     /// <summary>
@@ -29,6 +31,14 @@ namespace COM3D2.MotionTimelineEditor
 
         public static readonly float ToolButtonWidth = 44f;
         public static readonly float SpaceButtonWidth = 54f;
+        // アイコンをボタン枠より少し小さく描くための余白 (両側合計)
+        private const float SpaceIconOffset = 4f;
+
+        /// <summary>軸空間ボタンの幅。アイコンなら正方形、テキストフォールバックなら固定幅</summary>
+        public static float GetSpaceButtonWidth(GizmoToolRowOption option, float height)
+        {
+            return option.globalIcon != null ? height : SpaceButtonWidth;
+        }
 
         public static void Draw(GUIView view, GizmoToolRowOption option)
         {
@@ -48,13 +58,29 @@ namespace COM3D2.MotionTimelineEditor
                         on => { if (on) option.setTool(tool); });
                 }
 
-                if (view.DrawButton(option.getUseLocalSpace() ? "Local" : "Global",
-                    SpaceButtonWidth, height))
-                {
-                    option.setUseLocalSpace(!option.getUseLocalSpace());
-                }
+                DrawSpaceButton(view, option, height);
             }
             view.EndLayout();
+        }
+
+        /// <summary>
+        /// 軸空間 (Local/Global) の切替ボタン 1 個。ワールドアイコンのトグルで表し、
+        /// Global のときだけ点灯させる。SceneView のツールバーからも単体で使う。
+        /// アイコンを読み込めなかったときはテキスト表示にフォールバックする
+        /// </summary>
+        public static void DrawSpaceButton(GUIView view, GizmoToolRowOption option, float height)
+        {
+            var useLocalSpace = option.getUseLocalSpace();
+
+            if (option.globalIcon != null)
+            {
+                view.DrawToggle(option.globalIcon, !useLocalSpace, height, height,
+                    on => option.setUseLocalSpace(!on), SpaceIconOffset);
+            }
+            else if (view.DrawButton(useLocalSpace ? "Local" : "Global", SpaceButtonWidth, height))
+            {
+                option.setUseLocalSpace(!useLocalSpace);
+            }
         }
     }
 }
