@@ -13,6 +13,13 @@ namespace COM3D2.MotionTimelineEditor
         Scale,
     }
 
+    /// <summary>ギズモを表示する対象</summary>
+    public enum GizmoTargetType
+    {
+        All,
+        Selected,
+    }
+
     /// <summary>
     /// カメラ非依存の Transform 操作ギズモ。
     /// 任意カメラの OnPostRender から Draw し、そのカメラの RT ピクセル座標で
