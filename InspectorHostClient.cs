@@ -17,10 +17,18 @@ namespace COM3D2.MotionTimelineEditor
             Func<GameObject, bool> canDraw,
             Action<GameObject, Rect> draw);
 
+        private delegate object Register2Delegate(
+            string name,
+            Func<GameObject, bool> canDraw,
+            Action<GameObject, Rect> draw,
+            bool drawsHeader);
+
         private static RegisterDelegate _register;
+        private static Register2Delegate _register2;
         private static Action<object> _unregister;
         private static Func<Rect> _getWindowRect;
         private static Func<bool> _isWindowVisible;
+        private static Func<GameObject, Rect, float> _drawHeader;
         private static bool _initialized;
 
         public static bool isAvailable
@@ -53,6 +61,19 @@ namespace COM3D2.MotionTimelineEditor
         /// <summary>ホストのウィンドウが描画されているか。取得できなければ false</summary>
         public static bool isHostWindowVisible
             => isWindowStateAvailable && _isWindowVisible();
+
+        /// <summary>
+        /// ヘッダー行を委譲先が自前で描けるか。描けない旧バージョンの SceneEditor では
+        /// ヘッダーはホストが委譲領域の外へ固定表示する (従来どおりの見た目)
+        /// </summary>
+        public static bool isHeaderDrawAvailable
+        {
+            get
+            {
+                Initialize();
+                return _register2 != null && _drawHeader != null;
+            }
+        }
 
         private static void Initialize()
         {
@@ -96,6 +117,34 @@ namespace COM3D2.MotionTimelineEditor
             }
 
             InitializeWindowState(type);
+            InitializeHeaderDraw(type);
+        }
+
+        /// <summary>
+        /// ヘッダーの自前描画も後から足した API なので、無くても登録自体は成立させる。
+        /// Register2 と DrawHeader は対で使うため、片方でも欠けたら両方無効にする
+        /// </summary>
+        private static void InitializeHeaderDraw(Type type)
+        {
+            try
+            {
+                var register2 = type.GetMethod("Register2", BindingFlags.Public | BindingFlags.Static);
+                var drawHeader = type.GetMethod("DrawHeader", BindingFlags.Public | BindingFlags.Static);
+                if (register2 == null || drawHeader == null)
+                {
+                    return;
+                }
+
+                _register2 = (Register2Delegate)Delegate.CreateDelegate(typeof(Register2Delegate), register2);
+                _drawHeader = (Func<GameObject, Rect, float>)Delegate.CreateDelegate(
+                    typeof(Func<GameObject, Rect, float>), drawHeader);
+            }
+            catch (Exception e)
+            {
+                MTEUtils.LogWarning("InspectorHostClient: ヘッダー描画 API の解決に失敗しました: " + e.Message);
+                _register2 = null;
+                _drawHeader = null;
+            }
         }
 
         /// <summary>
@@ -124,11 +173,18 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
-        /// <summary>Inspector 描画をホストへ登録する。戻り値はハンドル (ホスト不在なら null)</summary>
+        /// <summary>
+        /// Inspector 描画をホストへ登録する。戻り値はハンドル (ホスト不在なら null)。
+        /// drawsHeader に true を指定すると、ヘッダー行のぶんを引かない内容領域が渡され、
+        /// 委譲先が自前のスクロールビューの先頭で <see cref="DrawHeader"/> を呼ぶ約束になる
+        /// (ホストが対応していなければ false と同じ扱いになるので、
+        /// <see cref="isHeaderDrawAvailable"/> で判定してから呼ぶこと)
+        /// </summary>
         public static object Register(
             string name,
             Func<GameObject, bool> canDraw,
-            Action<GameObject, Rect> draw)
+            Action<GameObject, Rect> draw,
+            bool drawsHeader = false)
         {
             if (!isAvailable)
             {
@@ -137,6 +193,10 @@ namespace COM3D2.MotionTimelineEditor
 
             try
             {
+                if (drawsHeader && isHeaderDrawAvailable)
+                {
+                    return _register2(name, canDraw, draw, true);
+                }
                 return _register(name, canDraw, draw);
             }
             catch (Exception e)
@@ -144,6 +204,21 @@ namespace COM3D2.MotionTimelineEditor
                 MTEUtils.LogWarning("InspectorHostClient: InspectorHost への登録に失敗しました: " + e.Message);
                 return null;
             }
+        }
+
+        /// <summary>
+        /// ホストのヘッダー行 (ギズモ行 + アクティブ・名前・フォーカス行) を指定矩形へ描く。
+        /// drawsHeader: true で登録した委譲先が、自前のスクロールビューの先頭で呼ぶ。
+        /// 戻り値は描画に使った高さ (末尾の余白は含まない)。描けなければ 0
+        /// </summary>
+        public static float DrawHeader(GameObject go, Rect rect)
+        {
+            if (!isHeaderDrawAvailable)
+            {
+                return 0f;
+            }
+
+            return _drawHeader(go, rect);
         }
 
         public static void Unregister(object handle)
