@@ -16,6 +16,7 @@ namespace COM3D2.MotionTimelineEditor
     ///
     /// 契約 (ホスト側 ModelSelectHost と同じ):
     /// - 対象は ModelProviderClient (ModelProviderHost) 経由で提供しているモデルのみ
+    /// - TrySelectModel は model = null でモデル選択の解除、focus = true でカメラ寄せが可能
     /// - SceneEditor 側の連動設定が OFF の間は通知が来ず、TrySelectModel も失敗する
     /// - 自分の TrySelectModel に対しても通知が流れる (エコー)。抑止は呼び出し側の責務
     /// - 受け取った GameObject を保持する場合、破棄済みを掴み続けないよう
@@ -34,7 +35,7 @@ namespace COM3D2.MotionTimelineEditor
         private static Action<Action<GameObject>> _unsubscribe;
         private static Func<GameObject> _selectedModel;
         private static Func<bool> _isLinkEnabled;
-        private static Func<GameObject, bool, bool> _trySelectModel;
+        private static Func<GameObject, bool, bool, bool> _trySelectModel;
         private static bool _initialized;
 
         // ホストへ渡す中継は Relay の 1 本だけ。ゲストの購読はこちらで保持する
@@ -99,8 +100,8 @@ namespace COM3D2.MotionTimelineEditor
                     typeof(Action<Action<GameObject>>), subscribe);
                 _unsubscribe = (Action<Action<GameObject>>)Delegate.CreateDelegate(
                     typeof(Action<Action<GameObject>>), unsubscribe);
-                _trySelectModel = (Func<GameObject, bool, bool>)Delegate.CreateDelegate(
-                    typeof(Func<GameObject, bool, bool>), trySelectModel);
+                _trySelectModel = (Func<GameObject, bool, bool, bool>)Delegate.CreateDelegate(
+                    typeof(Func<GameObject, bool, bool, bool>), trySelectModel);
                 _selectedModel = (Func<GameObject>)Delegate.CreateDelegate(
                     typeof(Func<GameObject>), selectedModel.GetGetMethod());
                 _isLinkEnabled = (Func<bool>)Delegate.CreateDelegate(
@@ -128,13 +129,16 @@ namespace COM3D2.MotionTimelineEditor
         /// <summary>
         /// SceneEditor の選択中モデルを変更する。
         /// SceneEditor が無効・不在・連動設定 OFF・モデルが提供中一覧に無い場合は false。
+        /// model = null はモデル選択の解除 (モデル以外の選択中は何も起きず true)。
         /// showGizmo = false なら SceneEditor 側ギズモを抑止する (自前ギズモを持つ場合用)。
+        /// focus = true なら SceneView のカメラを対象へ寄せる (解除時は無視)。
         /// 成功時は自分にも変更通知がエコーされるため、必要なら呼び出し側で抑止すること
-        /// (既に選択中のモデルへの再選択は選択変化が無いため通知されない)
+        /// (既に選択中のモデルへの再選択は選択変化が無いため通知されないが、
+        /// focus = true のカメラ寄せだけは再選択でも毎回実行される)
         /// </summary>
-        public static bool TrySelectModel(GameObject model, bool showGizmo = true)
+        public static bool TrySelectModel(GameObject model, bool showGizmo = true, bool focus = false)
         {
-            return isAvailable && _trySelectModel(model, showGizmo);
+            return isAvailable && _trySelectModel(model, showGizmo, focus);
         }
 
         /// <summary>
