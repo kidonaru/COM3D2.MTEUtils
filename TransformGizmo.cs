@@ -420,35 +420,11 @@ namespace COM3D2.MotionTimelineEditor
 
             var origin = target.position;
             var size = GizmoSize(camera, origin);
-            var bestAxis = -1;
-            var bestDistance = HitThreshold;
 
-            for (var axis = 0; axis < 3; axis++)
-            {
-                float distance;
-                if (tool == GizmoTool.Rotate)
-                {
-                    distance = DistanceToCircle(camera, rtPoint, origin, AxisDirection(axis), size);
-                }
-                else
-                {
-                    bool v0, v1;
-                    var a = ToRtPoint(camera, origin, out v0);
-                    var b = ToRtPoint(camera, origin + AxisDirection(axis) * size, out v1);
-                    distance = (v0 && v1) ? DistanceToSegment(rtPoint, a, b) : float.MaxValue;
-                }
-
-                if (distance < bestDistance)
-                {
-                    bestDistance = distance;
-                    bestAxis = axis;
-                }
-            }
-
-            // 軸を掴めなかったときだけ面ハンドルを見る。
-            // 面の 2 辺は軸線と重なっているため、軸を優先しないと辺が掴めなくなる
+            // 面ハンドルを先に見る。面の 2 辺は軸線と重なっているため、
+            // 軸を優先すると四角形の内側でも軸を掴んでしまう
             var bestPlane = -1;
-            if (bestAxis < 0 && tool != GizmoTool.Rotate)
+            if (tool != GizmoTool.Rotate)
             {
                 for (var axis = 0; axis < 3; axis++)
                 {
@@ -457,6 +433,34 @@ namespace COM3D2.MotionTimelineEditor
                     {
                         bestPlane = axis;
                         break;
+                    }
+                }
+            }
+
+            // 面ハンドルを掴めなかったときだけ軸を見る
+            var bestAxis = -1;
+            if (bestPlane < 0)
+            {
+                var bestDistance = HitThreshold;
+                for (var axis = 0; axis < 3; axis++)
+                {
+                    float distance;
+                    if (tool == GizmoTool.Rotate)
+                    {
+                        distance = DistanceToCircle(camera, rtPoint, origin, AxisDirection(axis), size);
+                    }
+                    else
+                    {
+                        bool v0, v1;
+                        var a = ToRtPoint(camera, origin, out v0);
+                        var b = ToRtPoint(camera, origin + AxisDirection(axis) * size, out v1);
+                        distance = (v0 && v1) ? DistanceToSegment(rtPoint, a, b) : float.MaxValue;
+                    }
+
+                    if (distance < bestDistance)
+                    {
+                        bestDistance = distance;
+                        bestAxis = axis;
                     }
                 }
             }
