@@ -54,6 +54,12 @@ namespace COM3D2.MotionTimelineEditor
         public const float DegenerateEpsilon = 0.001f;
         // レイと軸がほぼ平行と判定する閾値
         private const float ParallelEpsilon = 0.0001f;
+        /// <summary>
+        /// 回転面が視線とほぼ平行と判定する閾値 (面法線と視線方向の内積)。
+        /// これを下回る面は円が線に潰れて角度が安定せず、わずかなマウス移動で
+        /// 対象が飛ぶため掴ませない
+        /// </summary>
+        private const float RotationPlaneMinDot = 0.1f;
 
         // GizmoRender と同じ純色。選択中の軸は同じく半透明の黄で塗る
         private static readonly Color[] AxisColors =
@@ -447,7 +453,14 @@ namespace COM3D2.MotionTimelineEditor
                     float distance;
                     if (tool == GizmoTool.Rotate)
                     {
-                        distance = DistanceToCircle(camera, rtPoint, origin, AxisDirection(axis), size);
+                        var axisDir = AxisDirection(axis);
+                        // 視線と平行に近い回転面は角度が安定しないので候補から外す。
+                        // ここで弾いておけば手前に見えている別の軸を掴める
+                        if (!IsRotationPlaneStable(RayDirection(camera, rtPoint), axisDir))
+                        {
+                            continue;
+                        }
+                        distance = DistanceToCircle(camera, rtPoint, origin, axisDir, size);
                     }
                     else
                     {
@@ -493,9 +506,20 @@ namespace COM3D2.MotionTimelineEditor
             }
             else
             {
-                _dragStartParam = tool == GizmoTool.Rotate
-                    ? RotationAngleAt(camera, rtPoint)
-                    : AxisParamAt(camera, rtPoint);
+                if (tool == GizmoTool.Rotate)
+                {
+                    // 開始角が取れないまま掴むと、最初の更新で角度差が丸ごとズレて
+                    // 対象が飛ぶ。面ドラッグと同じく掴まないことで防ぐ
+                    if (!TryRotationAngleAt(camera, rtPoint, out _dragStartParam))
+                    {
+                        EndDrag();
+                        return false;
+                    }
+                }
+                else
+                {
+                    _dragStartParam = AxisParamAt(camera, rtPoint);
+                }
             }
             return true;
         }
@@ -603,23 +627,50 @@ namespace COM3D2.MotionTimelineEditor
             return (b * e - d) / denom;
         }
 
-        /// <summary>回転面上でのマウス位置の角度 (度)</summary>
-        private float RotationAngleAt(Camera camera, Vector2 rtPoint)
+        /// <summary>RT ピクセル座標を通すマウスレイの方向</summary>
+        private static Vector3 RayDirection(Camera camera, Vector2 rtPoint)
         {
-            var axis = _dragAxisDir;
-            var plane = new Plane(axis, _dragStartPosition);
-            var ray = camera.ScreenPointToRay(new Vector3(rtPoint.x, rtPoint.y, 0f));
+            return camera.ScreenPointToRay(new Vector3(rtPoint.x, rtPoint.y, 0f)).direction;
+        }
 
+        /// <summary>
+        /// 回転面がレイに対して十分傾いていて、角度を安定して取れるか。
+        /// 当たり判定と角度計算で基準がずれると「掴めたのに角度が取れない」が起きるため、
+        /// どちらも同じマウスレイの方向で判定する
+        /// </summary>
+        private static bool IsRotationPlaneStable(Vector3 rayDirection, Vector3 axis)
+        {
+            return Mathf.Abs(Vector3.Dot(rayDirection, axis)) >= RotationPlaneMinDot;
+        }
+
+        /// <summary>
+        /// 回転面上でのマウス位置の角度 (度)。レイが面と交わらない
+        /// (視線とほぼ平行 / 面の裏側を指している) 場合は false を返す。
+        /// 角度 0 で代用すると開始角との差が丸ごと回転量になり対象が飛ぶ
+        /// </summary>
+        private bool TryRotationAngleAt(Camera camera, Vector2 rtPoint, out float angle)
+        {
+            angle = 0f;
+
+            var axis = _dragAxisDir;
+            var ray = camera.ScreenPointToRay(new Vector3(rtPoint.x, rtPoint.y, 0f));
+            if (!IsRotationPlaneStable(ray.direction, axis))
+            {
+                return false;
+            }
+
+            var plane = new Plane(axis, _dragStartPosition);
             float enter;
             if (!plane.Raycast(ray, out enter))
             {
-                return 0f;
+                return false;
             }
 
             var onPlane = ray.GetPoint(enter) - _dragStartPosition;
             Vector3 basis1, basis2;
             CalcCircleBasis(axis, out basis1, out basis2);
-            return Mathf.Atan2(Vector3.Dot(onPlane, basis2), Vector3.Dot(onPlane, basis1)) * Mathf.Rad2Deg;
+            angle = Mathf.Atan2(Vector3.Dot(onPlane, basis2), Vector3.Dot(onPlane, basis1)) * Mathf.Rad2Deg;
+            return true;
         }
 
         /// <summary>ドラッグを進める。座標は TryBeginDrag と同じビューの RT ピクセル座標</summary>
@@ -647,9 +698,14 @@ namespace COM3D2.MotionTimelineEditor
                 }
                 case GizmoTool.Rotate:
                 {
-                    var angle = RotationAngleAt(_dragCamera, rtPoint) - _dragStartParam;
+                    float current;
+                    // 面から外れたフレームは角度が取れない。据え置いて次のフレームを待つ
+                    if (!TryRotationAngleAt(_dragCamera, rtPoint, out current))
+                    {
+                        return;
+                    }
                     target.rotation =
-                        Quaternion.AngleAxis(angle, _dragAxisDir) * _dragStartRotation;
+                        Quaternion.AngleAxis(current - _dragStartParam, _dragAxisDir) * _dragStartRotation;
                     break;
                 }
                 case GizmoTool.Scale:
