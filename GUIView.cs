@@ -1404,7 +1404,9 @@ namespace COM3D2.MotionTimelineEditor
 
         private static readonly string[] Vector3AxisNames = { "X", "Y", "Z" };
         public static readonly float Vector3DragLabelWidth = 14f;
-        public static readonly float Vector3ResetButtonWidth = 20f;
+        /// <summary>リセットボタン (R) の幅</summary>
+        public static readonly float ResetButtonWidth = 20f;
+        public static readonly float Vector3ResetButtonWidth = ResetButtonWidth;
         // 連動トグルのアイコン余白 (ツールバーのアイコンボタンと同じ見た目の大きさに揃える)
         public static readonly float Vector3LinkIconOffset = 4f;
         public static readonly float Vector3FieldMinWidth = 40f;
@@ -1615,6 +1617,8 @@ namespace COM3D2.MotionTimelineEditor
             public float dragSensitivity;
             public FloatFieldType fieldType;
             public Action<float> onChanged;
+            /// <summary>null ならリセットボタンを出さない</summary>
+            public Action onReset;
         }
 
         /// <summary>
@@ -1648,7 +1652,8 @@ namespace COM3D2.MotionTimelineEditor
                 value = value,
                 minValue = option.minValue,
                 maxValue = option.maxValue,
-                width = option.fieldWidth,
+                width = FieldWidthWithReset(option.fieldWidth, option.onReset),
+                onReset = option.onReset,
                 height = height,
                 fieldCache = fieldCache,
                 onChanged = option.onChanged,
@@ -1672,6 +1677,8 @@ namespace COM3D2.MotionTimelineEditor
             /// <summary>ラベルドラッグ 1px あたりの増減量。0 なら既定値</summary>
             public float dragSensitivity;
             public Action<int> onChanged;
+            /// <summary>null ならリセットボタンを出さない</summary>
+            public Action onReset;
         }
 
         /// <summary>int ドラッグの端数。ドラッグは同時に 1 つしか成立しないため単一で足りる</summary>
@@ -1715,13 +1722,27 @@ namespace COM3D2.MotionTimelineEditor
                 value = value,
                 minValue = option.minValue,
                 maxValue = option.maxValue,
-                width = option.fieldWidth,
+                width = FieldWidthWithReset(option.fieldWidth, option.onReset),
+                onReset = option.onReset,
                 height = height,
                 fieldCache = fieldCache,
                 onChanged = option.onChanged,
             });
 
             return updated;
+        }
+
+        /// <summary>
+        /// リセットボタンは入力欄の幅を内側で削るため、
+        /// fieldWidth を入力欄そのものの幅として保てるようボタン分を足す
+        /// </summary>
+        private static float FieldWidthWithReset(float fieldWidth, Action onReset)
+        {
+            if (onReset == null)
+            {
+                return fieldWidth;
+            }
+            return fieldWidth + ResetButtonWidth;
         }
 
         /// <summary>min/max がともに 0 の場合は制限なしとして扱う (DrawFloatField と同じ流儀)</summary>
