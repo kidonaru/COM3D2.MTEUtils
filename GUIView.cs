@@ -1102,7 +1102,8 @@ namespace COM3D2.MotionTimelineEditor
             float height,
             float sensitivity,
             Action<float> onDelta,
-            GUIStyle style = null)
+            GUIStyle style = null,
+            Action onDragStart = null)
         {
             var drawRect = GetDrawRect(width, height);
             var controlId = GUIUtility.GetControlID(FocusType.Passive);
@@ -1117,6 +1118,7 @@ namespace COM3D2.MotionTimelineEditor
                     if (e.button == 0 && drawRect.Contains(e.mousePosition))
                     {
                         GUIUtility.hotControl = controlId;
+                        onDragStart?.Invoke();
                         e.Use();
                     }
                     break;
@@ -1590,6 +1592,146 @@ namespace COM3D2.MotionTimelineEditor
             }
 
             return updated;
+        }
+
+        /// <summary>ドラッグラベル + 数値入力 (float) の既定感度</summary>
+        public static readonly float DefaultFloatDragSensitivity = 0.01f;
+        /// <summary>ドラッグラベル + 数値入力 (int) の既定感度</summary>
+        public static readonly float DefaultIntDragSensitivity = 0.5f;
+
+        public struct DragFloatFieldOption
+        {
+            public string label;
+            /// <summary>ラベル幅。0 なら view の labelWidth</summary>
+            public float labelWidth;
+            public float value;
+            public float minValue;
+            public float maxValue;
+            /// <summary>数値入力欄の幅</summary>
+            public float fieldWidth;
+            /// <summary>高さ。0 なら 20</summary>
+            public float height;
+            /// <summary>ラベルドラッグ 1px あたりの増減量。0 なら既定値</summary>
+            public float dragSensitivity;
+            public FloatFieldType fieldType;
+            public Action<float> onChanged;
+        }
+
+        /// <summary>
+        /// 左右ドラッグで増減できるラベルと数値入力欄のセット (float)。
+        /// Inspector の Vector3 行と同じ操作感を単一値でも使えるようにしたもの
+        /// </summary>
+        public bool DrawDragFloatField(DragFloatFieldOption option)
+        {
+            var height = option.height > 0f ? option.height : 20f;
+            var labelWidth = option.labelWidth > 0f ? option.labelWidth : this.labelWidth;
+            var sensitivity = option.dragSensitivity > 0f ? option.dragSensitivity : DefaultFloatDragSensitivity;
+            var value = option.value;
+            var updated = false;
+
+            DrawDragLabel(option.label, labelWidth, height, sensitivity, delta =>
+            {
+                var newValue = ClampValue(value + delta, option.minValue, option.maxValue);
+                if (newValue == value) return;
+
+                value = newValue;
+                option.onChanged?.Invoke(newValue);
+                updated = true;
+            });
+
+            // ドラッグで変わった値を表示へ反映するため、キャッシュを自前で更新する
+            var fieldCache = GetFieldCache(option.label, option.fieldType);
+            fieldCache.UpdateValue(value);
+
+            updated |= DrawFloatField(new FloatFieldOption
+            {
+                value = value,
+                minValue = option.minValue,
+                maxValue = option.maxValue,
+                width = option.fieldWidth,
+                height = height,
+                fieldCache = fieldCache,
+                onChanged = option.onChanged,
+            });
+
+            return updated;
+        }
+
+        public struct DragIntFieldOption
+        {
+            public string label;
+            /// <summary>ラベル幅。0 なら view の labelWidth</summary>
+            public float labelWidth;
+            public int value;
+            public int minValue;
+            public int maxValue;
+            /// <summary>数値入力欄の幅</summary>
+            public float fieldWidth;
+            /// <summary>高さ。0 なら 20</summary>
+            public float height;
+            /// <summary>ラベルドラッグ 1px あたりの増減量。0 なら既定値</summary>
+            public float dragSensitivity;
+            public Action<int> onChanged;
+        }
+
+        /// <summary>int ドラッグの端数。ドラッグは同時に 1 つしか成立しないため単一で足りる</summary>
+        private static float _intDragResidual = 0f;
+
+        /// <summary>
+        /// 左右ドラッグで増減できるラベルと数値入力欄のセット (int)。
+        /// 1px 未満の移動を切り捨てないよう端数を持ち越す
+        /// </summary>
+        public bool DrawDragIntField(DragIntFieldOption option)
+        {
+            var height = option.height > 0f ? option.height : 20f;
+            var labelWidth = option.labelWidth > 0f ? option.labelWidth : this.labelWidth;
+            var sensitivity = option.dragSensitivity > 0f ? option.dragSensitivity : DefaultIntDragSensitivity;
+            var value = option.value;
+            var updated = false;
+
+            DrawDragLabel(option.label, labelWidth, height, sensitivity, delta =>
+            {
+                _intDragResidual += delta;
+                var step = (int)_intDragResidual;
+                if (step == 0) return;
+
+                _intDragResidual -= step;
+
+                var newValue = (int)ClampValue(value + step, option.minValue, option.maxValue);
+                if (newValue == value) return;
+
+                value = newValue;
+                option.onChanged?.Invoke(newValue);
+                updated = true;
+            },
+            onDragStart: () => _intDragResidual = 0f);
+
+            // ドラッグで変わった値を表示へ反映するため、キャッシュを自前で更新する
+            var fieldCache = GetIntFieldCache(option.label);
+            fieldCache.UpdateValue(value);
+
+            updated |= DrawIntField(new IntFieldOption
+            {
+                value = value,
+                minValue = option.minValue,
+                maxValue = option.maxValue,
+                width = option.fieldWidth,
+                height = height,
+                fieldCache = fieldCache,
+                onChanged = option.onChanged,
+            });
+
+            return updated;
+        }
+
+        /// <summary>min/max がともに 0 の場合は制限なしとして扱う (DrawFloatField と同じ流儀)</summary>
+        private static float ClampValue(float value, float minValue, float maxValue)
+        {
+            if (minValue == 0f && maxValue == 0f)
+            {
+                return value;
+            }
+            return Mathf.Clamp(value, minValue, maxValue);
         }
 
         public Color DrawColorFieldCache(
