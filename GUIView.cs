@@ -1389,6 +1389,8 @@ namespace COM3D2.MotionTimelineEditor
             public float height;
             /// <summary>ドラッグラベルの 1px あたりの増減量</summary>
             public float dragSensitivity;
+            /// <summary>数値入力の表示形式。既定 (Float) は小数 3 桁 (F3) として扱う</summary>
+            public FloatFieldType fieldType;
             public Vector3 value;
             public Action<Vector3> onChanged;
             /// <summary>変更後の値と変更軸の index を受け取る。onChanged とどちらかを設定する</summary>
@@ -1421,6 +1423,8 @@ namespace COM3D2.MotionTimelineEditor
             var value = option.value;
             var hasReset = option.onReset != null;
             var hasLink = option.onLinkChanged != null;
+            var fieldType = option.fieldType == FloatFieldType.Float
+                ? FloatFieldType.F3 : option.fieldType;
 
             // ラベル・ドラッグラベル・リセット以外の残り幅を 3 軸で分け合う。
             // viewRect はスクロールビュー中もコンテンツ幅を返すため分岐不要
@@ -1445,6 +1449,23 @@ namespace COM3D2.MotionTimelineEditor
             {
                 DrawLabel(option.label, option.labelWidth, height, style: option.labelStyle);
 
+                // 連動トグルはラベルの直後に置く (どの行の連動かを見失わないため)
+                if (hasLink)
+                {
+                    if (option.linkIcon != null)
+                    {
+                        DrawToggle(option.linkIcon, option.linked,
+                            Vector3ResetButtonWidth, height, option.onLinkChanged,
+                            Vector3LinkIconOffset);
+                    }
+                    else
+                    {
+                        // アイコンが読み込めない環境向けのテキストフォールバック
+                        DrawToggle("連", option.linked,
+                            Vector3ResetButtonWidth, height, option.onLinkChanged);
+                    }
+                }
+
                 for (var i = 0; i < 3; i++)
                 {
                     var index = i;
@@ -1458,7 +1479,7 @@ namespace COM3D2.MotionTimelineEditor
                         });
 
                     // ドラッグで変わった値を表示へ反映するため、キャッシュを自前で更新する
-                    var fieldCache = GetFieldCache(option.label + index, FloatFieldType.F3);
+                    var fieldCache = GetFieldCache(option.label + index, fieldType);
                     fieldCache.UpdateValue(value[index]);
 
                     DrawFloatField(new FloatFieldOption
@@ -1480,28 +1501,46 @@ namespace COM3D2.MotionTimelineEditor
                 {
                     option.onReset();
                 }
-
-                if (hasLink)
-                {
-                    if (option.linkIcon != null)
-                    {
-                        DrawToggle(option.linkIcon, option.linked,
-                            Vector3ResetButtonWidth, height, option.onLinkChanged,
-                            Vector3LinkIconOffset);
-                    }
-                    else
-                    {
-                        // アイコンが読み込めない環境向けのテキストフォールバック
-                        DrawToggle("連", option.linked,
-                            Vector3ResetButtonWidth, height, option.onLinkChanged);
-                    }
-                }
             }
             EndLayout();
         }
 
+        /// <summary>連動で比率の分母に使えない「実質 0」とみなす閾値 (丸め誤差の許容)</summary>
+        private static readonly float Vector3LinkZeroEpsilon = 1e-6f;
+
+        /// <summary>
+        /// 連動 ON のときの値の伝播。編集した軸の変化比率を他軸へも掛けて XYZ を同時に変える
+        /// (編集前の値が 0 の軸は比率が定まらないため全軸を同値にする)
+        /// </summary>
+        private static Vector3 LinkValue(Vector3 current, Vector3 value, int index)
+        {
+            var oldValue = current[index];
+            var newValue = value[index];
+            if (Mathf.Abs(oldValue) <= Vector3LinkZeroEpsilon)
+            {
+                return Vector3.one * newValue;
+            }
+
+            var linked = current * (newValue / oldValue);
+            linked[index] = newValue;
+            // 極小値からの編集で比率が発散した場合は連動を諦めて単軸だけ反映する
+            if (float.IsInfinity(linked.x) || float.IsNaN(linked.x) ||
+                float.IsInfinity(linked.y) || float.IsNaN(linked.y) ||
+                float.IsInfinity(linked.z) || float.IsNaN(linked.z))
+            {
+                return value;
+            }
+            return linked;
+        }
+
         private static void NotifyChanged(Vector3RowOption option, Vector3 value, int index)
         {
+            if (option.linked && option.onLinkChanged != null)
+            {
+                // option.value は編集前の値なので、そこからの比率で他軸へ伝播できる
+                value = LinkValue(option.value, value, index);
+            }
+
             if (option.onChangedAxis != null)
             {
                 option.onChangedAxis(value, index);
