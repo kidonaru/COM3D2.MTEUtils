@@ -37,6 +37,15 @@ namespace COM3D2.MotionTimelineEditor
         public Func<T, bool> isSelected;
         public Action<T> onSelected;
 
+        /// <summary>
+        /// 行頭の変更追跡チェックの状態。null なら列自体を出さない (既定)。
+        /// onCheckChanged と対で設定すること
+        /// </summary>
+        public Func<T, bool> getChecked;
+
+        /// <summary>チェック操作。getChecked が null なら呼ばれない</summary>
+        public Action<T, bool> onCheckChanged;
+
         // ---- 寸法 ----
 
         public float rowHeight = 20f;
@@ -303,9 +312,23 @@ namespace COM3D2.MotionTimelineEditor
                 return;
             }
 
-            view.currentPos = new Vector2(row.depth * indentWidth, index * rowHeight);
+            // チェック列はインデントの外へ出し、深さに関わらず縦に揃える
+            var hasCheck = getChecked != null && onCheckChanged != null;
+
+            view.currentPos = new Vector2(0, index * rowHeight);
             view.BeginHorizontal();
             {
+                if (hasCheck)
+                {
+                    view.DrawToggle(getChecked(node), GUIView.TrackedCheckWidth, rowHeight,
+                        newValue => onCheckChanged(node, newValue));
+                }
+
+                if (row.depth > 0)
+                {
+                    view.DrawEmpty(row.depth * indentWidth, rowHeight);
+                }
+
                 if (getChildCount(node) > 0)
                 {
                     var id = getId(node);
