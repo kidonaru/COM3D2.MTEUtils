@@ -2672,6 +2672,37 @@ namespace COM3D2.MotionTimelineEditor
             return updated;
         }
 
+        /// <summary>変更追跡チェックボックスの列幅</summary>
+        public const float TrackedCheckWidth = 20f;
+
+        /// <summary>
+        /// 変更追跡チェック付きのスライダー行。行頭にラベル無しチェックを置き、残り幅にスライダーを描く。
+        /// option.labelWidth は呼び出し側で TrackedCheckWidth ぶん詰めて渡すこと
+        /// </summary>
+        public void DrawTrackedSliderValue(
+            bool isChecked, Action<bool> onCheckChanged, float rowHeight, SliderOption option)
+        {
+            BeginHorizontal();
+            {
+                DrawToggle(isChecked, TrackedCheckWidth, rowHeight, onCheckChanged);
+                DrawSliderValue(option);
+            }
+            EndLayout();
+        }
+
+        /// <summary>変更追跡チェック付きのトグル行</summary>
+        public void DrawTrackedToggle(
+            bool isChecked, Action<bool> onCheckChanged,
+            string label, bool value, float width, float height, Action<bool> onChanged)
+        {
+            BeginHorizontal();
+            {
+                DrawToggle(isChecked, TrackedCheckWidth, height, onCheckChanged);
+                DrawToggle(label, value, width, height, onChanged);
+            }
+            EndLayout();
+        }
+
         /// <summary>
         /// 色設定を一行で描画する。
         /// 「編集」ボタンで ColorPickerWindow を開き、そちらで詳細な編集を行う
