@@ -2704,6 +2704,22 @@ namespace COM3D2.MotionTimelineEditor
         }
 
         /// <summary>
+        /// 変更追跡チェック付きのラベル行。
+        /// 値の編集欄が別行になる縦長レイアウト (シェイプキー等) 向け
+        /// </summary>
+        public void DrawTrackedLabel(
+            bool isChecked, Action<bool> onCheckChanged,
+            string label, float width, float height)
+        {
+            BeginHorizontal();
+            {
+                DrawToggle(isChecked, TrackedCheckWidth, height, onCheckChanged);
+                DrawLabel(label, width, height);
+            }
+            EndLayout();
+        }
+
+        /// <summary>
         /// 色設定を一行で描画する。
         /// 「編集」ボタンで ColorPickerWindow を開き、そちらで詳細な編集を行う
         /// </summary>
