@@ -42,12 +42,16 @@ namespace COM3D2.MotionTimelineEditor
         /// <summary>
         /// タブ列を描く。x/y は呼び出し元 GUI.Window のローカル座標、
         /// availableWidth はタブ列に使ってよい幅 (右側のボタン領域を除いた値)。
-        /// タブ押下は onTabMouseDown(タブindex, ウィンドウローカル押下位置) へ通知して
-        /// イベントを消費する (アクティブ化とつまみドラッグ候補の処理は呼び出し側の責務)
+        /// 全タブが下限幅で収まらない場合は両端に &lt; &gt; ボタンを出し、
+        /// scrollOffset (呼び出し元ウィンドウが保持) の位置から見える枚数だけ描く。
+        /// タブ押下は onTabMouseDown(グループ全体でのタブindex, ウィンドウローカル押下位置) へ
+        /// 通知してイベントを消費する
+        /// (アクティブ化とつまみドラッグ候補の処理は呼び出し側の責務)
         /// </summary>
         public static void Draw(
             string[] titles, int activeIndex,
             float x, float y, float availableWidth,
+            ref int scrollOffset,
             Action<int, Vector2> onTabMouseDown)
         {
             if (titles == null || titles.Length == 0)
@@ -56,16 +60,38 @@ namespace COM3D2.MotionTimelineEditor
             }
 
             var count = titles.Length;
-            var tabWidth = Mathf.Min(
-                TAB_WIDTH,
-                (availableWidth - TAB_MARGIN * (count - 1)) / Mathf.Max(1, count));
-
-            for (var i = 0; i < count; i++)
+            var layout = TabBarLayout.Calc(count, availableWidth, scrollOffset, activeIndex);
+            if (layout.visibleCount <= 0)
             {
-                var tabRect = new Rect(x, y, tabWidth, TAB_HEIGHT);
+                return;
+            }
+            // クランプ・アクティブ追従の結果を呼び出し元の保持値へ書き戻す
+            scrollOffset = layout.firstVisible;
+
+            var e = Event.current;
+
+            if (layout.scrollable)
+            {
+                var maxOffset = count - layout.visibleCount;
+                if (DrawScrollButton(x, y, "<", layout.firstVisible > 0))
+                {
+                    scrollOffset = layout.firstVisible - 1;
+                }
+                if (DrawScrollButton(
+                        x + availableWidth - TabBarLayout.SCROLL_BUTTON_WIDTH, y, ">",
+                        layout.firstVisible < maxOffset))
+                {
+                    scrollOffset = layout.firstVisible + 1;
+                }
+            }
+
+            var tabX = x + layout.tabsOriginX;
+            var last = layout.firstVisible + layout.visibleCount - 1;
+            for (var i = layout.firstVisible; i <= last; i++)
+            {
+                var tabRect = new Rect(tabX, y, layout.tabWidth, TAB_HEIGHT);
                 var isActive = i == activeIndex;
 
-                var e = Event.current;
                 if (e.type == EventType.MouseDown && e.button == 0 && tabRect.Contains(e.mousePosition))
                 {
                     if (onTabMouseDown != null)
@@ -97,11 +123,30 @@ namespace COM3D2.MotionTimelineEditor
                     GUI.DrawTexture(tabRect, Texture2D.whiteTexture);
                     GUI.color = Color.white;
                 }
-                GUI.Label(tabRect, GetTruncatedTitle(titles[i], tabWidth), tabLabelStyle);
+                GUI.Label(tabRect, GetTruncatedTitle(titles[i], layout.tabWidth), tabLabelStyle);
                 GUI.color = oldColor;
 
-                x += tabWidth + TAB_MARGIN;
+                tabX += layout.tabWidth + TAB_MARGIN;
             }
+        }
+
+        /// <summary>
+        /// スクロールボタン 1 つ。ボタン背景は非アクティブタブと同じ暗色矩形を自前で敷く
+        /// (既定のボタン背景だと高さ・見た目がタブから浮くため)
+        /// </summary>
+        private static bool DrawScrollButton(float x, float y, string label, bool enabled)
+        {
+            var rect = new Rect(x, y, TabBarLayout.SCROLL_BUTTON_WIDTH, TAB_HEIGHT);
+            var oldColor = GUI.color;
+            GUI.color = new Color(0f, 0f, 0f, 0.4f);
+            GUI.DrawTexture(rect, Texture2D.whiteTexture);
+            // 端に達している側は押せないことが分かるよう淡くする
+            GUI.color = enabled ? Color.white : new Color(1f, 1f, 1f, 0.3f);
+            GUI.enabled = enabled;
+            var pressed = GUI.Button(rect, label, tabLabelStyle);
+            GUI.enabled = true;
+            GUI.color = oldColor;
+            return pressed;
         }
 
         private struct TruncatedTitleEntry

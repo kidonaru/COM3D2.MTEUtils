@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.SceneManagement;
 
 namespace COM3D2.MotionTimelineEditor
@@ -116,6 +116,8 @@ namespace COM3D2.MotionTimelineEditor
         /// <summary>ホストから push されたタブバー状態。null はグループ非加入</summary>
         private string[] _tabTitles;
         private int _tabActiveIndex = -1;
+        /// <summary>タブ列のスクロール位置 (先頭に描くタブの index)。TabBarDrawer が書き戻す</summary>
+        private int _tabScrollOffset;
 
         /// <summary>ドッキング中に非アクティブタブとして畳まれていないか (従属ポップアップの追従判定用)</summary>
         public bool isTabVisible => !_dockTabHidden;
@@ -231,6 +233,11 @@ namespace COM3D2.MotionTimelineEditor
             {
                 _tabTitles = titles;
                 _tabActiveIndex = activeIndex;
+                if (titles == null)
+                {
+                    // グループ離脱時は次回加入へスクロール位置を持ち越さない
+                    _tabScrollOffset = 0;
+                }
             });
         }
 
@@ -245,6 +252,7 @@ namespace COM3D2.MotionTimelineEditor
             _dockTabHidden = false;
             _tabTitles = null;
             _tabActiveIndex = -1;
+            _tabScrollOffset = 0;
         }
 
         public virtual void OnGUI()
@@ -307,14 +315,14 @@ namespace COM3D2.MotionTimelineEditor
         /// <summary>グループ時のタブ列。構成・見た目は内部窓 (EditorSubWindow.DrawTabBar) と揃える</summary>
         private void DrawTabBar()
         {
-            // タブ列がヘッダー右のボタン (閉じる + ロック) へ食い込まないよう、利用可能幅を先に確定する
-            var available = _windowRect.width - FRAME * 2
-                - (CLOSE_BUTTON_WIDTH + CLOSE_BUTTON_MARGIN * 2)
-                - (LOCK_BUTTON_WIDTH + CLOSE_BUTTON_MARGIN);
+            // タブ列がヘッダー右のボタン (閉じる + ロック) へ食い込まないよう、
+            // 利用可能幅の算出は TabBarLayout へ集約している
+            var available = TabBarLayout.CalcAvailableWidth(_windowRect.width);
 
             TabBarDrawer.Draw(
                 _tabTitles, _tabActiveIndex,
                 FRAME, (HEADER_HEIGHT - TabBarDrawer.TAB_HEIGHT) * 0.5f, available,
+                ref _tabScrollOffset,
                 (index, pos) => DockingClient.NotifyTabMouseDown(_dockHandle, index, pos.x, pos.y));
         }
 
