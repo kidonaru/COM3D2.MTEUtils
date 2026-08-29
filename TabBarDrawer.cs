@@ -19,31 +19,47 @@ namespace COM3D2.MotionTimelineEditor
 
         private static GUIStyle _tabLabelStyle;
 
+        /// <summary>
+        /// タブ切替メニューを描く GUI.Window の ID。
+        /// 開いているメニューは常に 1 つ (別のタブバーを右クリックすると前のは閉じる) なので
+        /// ゲスト側へコピーされた TabBarDrawer と共有しても衝突しない。
+        /// ComboBoxPopupWindow と同じく MTEUtils 共有のポップアップ用 ID 帯から採る
+        /// </summary>
+        public static readonly int MENU_WINDOW_ID = 8903375;
+
         // ---- 右クリックメニュー状態 (同時に開くのは 1 窓だけなので static で持つ) ----
         private static int _menuWindowId = -1;
-        private static Rect _menuRect;
+        /// <summary>メニューの左上位置 (ホストウィンドウのローカル座標)。ホストのドラッグに追従させるため相対で持つ</summary>
+        private static Vector2 _menuAnchor;
+        /// <summary>今フレームの描画で使うメニュー矩形 (スクリーンGUI座標)</summary>
+        private static Rect _menuScreenRect;
+        /// <summary>メニューを開いたフレーム。開いた直後の押下で即閉じないためのガード</summary>
+        private static int _menuOpenedFrame = -1;
+        // GUI.Window のコールバックは引数を取れないため、描画に要る情報を毎フレーム控える
+        private static string[] _menuTitles;
+        private static int _menuActiveIndex = -1;
+        private static Action<int> _menuOnTabSelected;
         private const float MENU_ITEM_HEIGHT = 22f;
         private const float MENU_WIDTH = 140f;
 
-        /// <summary>この window でタブ切替メニューが開いているか</summary>
-        public static bool IsContextMenuOpen(int windowId)
-        {
-            return _menuWindowId == windowId;
-        }
-
         /// <summary>
         /// この window のタブ切替メニューを閉じる。
-        /// メニューは DrawContextMenu の中でしか閉じられないため、描画が止まる経路
-        /// (ウィンドウを閉じる / グループ離脱) では呼び出し元から明示的に閉じる必要がある。
-        /// 開いたままになると IsContextMenuOpen が永久に true となり、
-        /// そのウィンドウがヘッダードラッグで動かせなくなる
+        /// 描画が止まる経路 (ウィンドウを閉じる / グループ離脱) では
+        /// 呼び出し元から明示的に閉じて状態を残さない
         /// </summary>
         public static void CloseContextMenu(int windowId)
         {
             if (_menuWindowId == windowId)
             {
-                _menuWindowId = -1;
+                CloseContextMenu();
             }
+        }
+
+        private static void CloseContextMenu()
+        {
+            _menuWindowId = -1;
+            _menuTitles = null;
+            _menuOnTabSelected = null;
         }
 
         /// <summary>タブ名用の中央寄せスタイル。GUIStyle は OnGUI 中でしか作れないため遅延生成する</summary>
@@ -97,14 +113,22 @@ namespace COM3D2.MotionTimelineEditor
 
             var e = Event.current;
 
-            // タブバー領域 (ボタンを含む availableWidth 全域) の右クリックでメニューを開く
+            // タブバー領域 (ボタンを含む availableWidth 全域) の右クリックでメニューを開閉する
             var barRect = new Rect(x, y, availableWidth, TAB_HEIGHT);
             if (e.type == EventType.MouseDown && e.button == 1 && barRect.Contains(e.mousePosition))
             {
-                _menuWindowId = windowId;
-                _menuRect = new Rect(
-                    e.mousePosition.x, y + TAB_HEIGHT,
-                    MENU_WIDTH, count * MENU_ITEM_HEIGHT);
+                if (_menuWindowId == windowId)
+                {
+                    CloseContextMenu();
+                }
+                else
+                {
+                    _menuWindowId = windowId;
+                    // 位置はホストウィンドウのローカル座標で覚え、
+                    // 描画時にホスト矩形を足してスクリーン座標へ直す (ホストの移動に追従させるため)
+                    _menuAnchor = new Vector2(e.mousePosition.x, y + TAB_HEIGHT);
+                    _menuOpenedFrame = Time.frameCount;
+                }
                 e.Use();
             }
 
@@ -169,43 +193,85 @@ namespace COM3D2.MotionTimelineEditor
         }
 
         /// <summary>
-        /// 右クリックで開いたタブ一覧メニュー。DrawWindow の最後 (全コントロールの後) に
-        /// 呼んで最前面へ描く。メニュー外クリックか項目選択で閉じる
+        /// 右クリックで開いたタブ一覧メニューを、ホストとは別の GUI.Window として描く。
+        /// ホストウィンドウの中に描くと矩形でクリップされてタブが多いときに見切れるため、
+        /// ドロップダウン (ComboBoxPopupWindow) と同じく独立ウィンドウにしている。
+        /// **ホストの GUI.Window の外** (OnGUI 直下) から毎フレーム呼ぶこと。
+        /// hostRect はホストウィンドウのスクリーン矩形 (メニュー位置の追従に使う)
         /// </summary>
-        public static void DrawContextMenu(
-            int windowId, string[] titles, int activeIndex, Action<int> onTabSelected)
+        public static void DrawContextMenuWindow(
+            int windowId, Rect hostRect, string[] titles, int activeIndex, Action<int> onTabSelected)
         {
             if (_menuWindowId != windowId)
             {
                 return;
             }
-            if (titles == null)
+            if (titles == null || titles.Length == 0)
             {
                 // グループ離脱で描くものが無くなった。開きっぱなしにしない
-                _menuWindowId = -1;
+                CloseContextMenu();
                 return;
             }
 
-            var e = Event.current;
-            // メニュー外の押下で閉じる (項目押下は下のボタンが先に拾う)
-            if (e.type == EventType.MouseDown && !_menuRect.Contains(e.mousePosition))
+            // メニューの外を押したら閉じる。IMGUI のイベントは下の GUI.Window に
+            // 消費されうるため、コンボのポップアップと同じく Input を直接見る。
+            // Layout パスに絞ってフレームあたり 1 回だけ判定する。
+            // 右ボタンも見るのは、別プラグインのタブバーを右クリックして
+            // あちらのメニューが開いたときにこちらを閉じるため (メニュー窓 ID は共有)
+            if (Event.current.type == EventType.Layout &&
+                Time.frameCount != _menuOpenedFrame &&
+                (Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1)) &&
+                !_menuScreenRect.Contains(MTEUtils.rawGuiPosition))
             {
-                _menuWindowId = -1;
+                CloseContextMenu();
                 return;
             }
 
-            // 背景 (下のコントロールが透けて見えないよう不透明寄りにする)
+            _menuTitles = titles;
+            _menuActiveIndex = activeIndex;
+            _menuOnTabSelected = onTabSelected;
+            _menuScreenRect = CalcMenuScreenRect(hostRect, titles.Length);
+
+            GUI.Window(MENU_WINDOW_ID, _menuScreenRect, DrawContextMenuContents, "", GUIView.gsWin);
+            // 他のウィンドウに隠されないよう最前面へ
+            GUI.BringWindowToFront(MENU_WINDOW_ID);
+        }
+
+        /// <summary>メニュー矩形をホスト相対から求め、画面内へ収める</summary>
+        private static Rect CalcMenuScreenRect(Rect hostRect, int count)
+        {
+            var height = count * MENU_ITEM_HEIGHT;
+            var x = hostRect.x + _menuAnchor.x;
+            var y = hostRect.y + _menuAnchor.y;
+            // 下へ収まらなければアンカーの上へ反転し、それでも溢れるなら画面内へクランプする
+            if (y + height > Screen.height)
+            {
+                y = hostRect.y + _menuAnchor.y - TAB_HEIGHT - height;
+            }
+            y = Mathf.Clamp(y, 0, Mathf.Max(0, Screen.height - height));
+            x = Mathf.Clamp(x, 0, Mathf.Max(0, Screen.width - MENU_WIDTH));
+            return new Rect(x, y, MENU_WIDTH, height);
+        }
+
+        private static void DrawContextMenuContents(int id)
+        {
+            var titles = _menuTitles;
+            if (titles == null)
+            {
+                return;
+            }
+
             var oldColor = GUI.color;
+            // 背景 (下のウィンドウが透けて見えないよう不透明寄りにする)
+            var bgRect = new Rect(0, 0, _menuScreenRect.width, _menuScreenRect.height);
             GUI.color = new Color(0.1f, 0.1f, 0.1f, 0.95f);
-            GUI.DrawTexture(_menuRect, Texture2D.whiteTexture);
+            GUI.DrawTexture(bgRect, Texture2D.whiteTexture);
             GUI.color = oldColor;
 
             for (var i = 0; i < titles.Length; i++)
             {
-                var itemRect = new Rect(
-                    _menuRect.x, _menuRect.y + i * MENU_ITEM_HEIGHT,
-                    MENU_WIDTH, MENU_ITEM_HEIGHT);
-                var isActive = i == activeIndex;
+                var itemRect = new Rect(0, i * MENU_ITEM_HEIGHT, MENU_WIDTH, MENU_ITEM_HEIGHT);
+                var isActive = i == _menuActiveIndex;
                 if (isActive)
                 {
                     GUI.color = new Color(1f, 1f, 1f, 0.15f);
@@ -215,7 +281,8 @@ namespace COM3D2.MotionTimelineEditor
                 var label = GetTruncatedTitle(titles[i], MENU_WIDTH, _truncatedMenuTitleCache);
                 if (GUI.Button(itemRect, label, tabLabelStyle))
                 {
-                    _menuWindowId = -1;
+                    var onTabSelected = _menuOnTabSelected;
+                    CloseContextMenu();
                     if (!isActive && onTabSelected != null)
                     {
                         onTabSelected(i);
