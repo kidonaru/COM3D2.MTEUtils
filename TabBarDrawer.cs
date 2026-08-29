@@ -31,6 +31,21 @@ namespace COM3D2.MotionTimelineEditor
             return _menuWindowId == windowId;
         }
 
+        /// <summary>
+        /// この window のタブ切替メニューを閉じる。
+        /// メニューは DrawContextMenu の中でしか閉じられないため、描画が止まる経路
+        /// (ウィンドウを閉じる / グループ離脱) では呼び出し元から明示的に閉じる必要がある。
+        /// 開いたままになると IsContextMenuOpen が永久に true となり、
+        /// そのウィンドウがヘッダードラッグで動かせなくなる
+        /// </summary>
+        public static void CloseContextMenu(int windowId)
+        {
+            if (_menuWindowId == windowId)
+            {
+                _menuWindowId = -1;
+            }
+        }
+
         /// <summary>タブ名用の中央寄せスタイル。GUIStyle は OnGUI 中でしか作れないため遅延生成する</summary>
         private static GUIStyle tabLabelStyle
         {
@@ -160,8 +175,14 @@ namespace COM3D2.MotionTimelineEditor
         public static void DrawContextMenu(
             int windowId, string[] titles, int activeIndex, Action<int> onTabSelected)
         {
-            if (_menuWindowId != windowId || titles == null)
+            if (_menuWindowId != windowId)
             {
+                return;
+            }
+            if (titles == null)
+            {
+                // グループ離脱で描くものが無くなった。開きっぱなしにしない
+                _menuWindowId = -1;
                 return;
             }
 
@@ -191,7 +212,8 @@ namespace COM3D2.MotionTimelineEditor
                     GUI.DrawTexture(itemRect, Texture2D.whiteTexture);
                     GUI.color = oldColor;
                 }
-                if (GUI.Button(itemRect, GetTruncatedTitle(titles[i], MENU_WIDTH), tabLabelStyle))
+                var label = GetTruncatedTitle(titles[i], MENU_WIDTH, _truncatedMenuTitleCache);
+                if (GUI.Button(itemRect, label, tabLabelStyle))
                 {
                     _menuWindowId = -1;
                     if (!isActive && onTabSelected != null)
@@ -234,9 +256,19 @@ namespace COM3D2.MotionTimelineEditor
         private static readonly Dictionary<string, TruncatedTitleEntry> _truncatedTitleCache =
             new Dictionary<string, TruncatedTitleEntry>();
 
+        /// <summary>
+        /// 右クリックメニュー用の省略結果キャッシュ。タブ列とは幅が違うため辞書を分ける。
+        /// 共有すると同じタイトルを 2 つの幅で毎フレーム上書きし合ってキャッシュが機能しない
+        /// </summary>
+        private static readonly Dictionary<string, TruncatedTitleEntry> _truncatedMenuTitleCache =
+            new Dictionary<string, TruncatedTitleEntry>();
+
         /// <summary>タブ幅に収まらないタイトルを末尾 "…" 付きで省略する</summary>
-        private static string GetTruncatedTitle(string title, float tabWidth)
+        private static string GetTruncatedTitle(
+            string title, float tabWidth,
+            Dictionary<string, TruncatedTitleEntry> cache = null)
         {
+            cache = cache ?? _truncatedTitleCache;
             if (string.IsNullOrEmpty(title))
             {
                 return title;
@@ -244,7 +276,7 @@ namespace COM3D2.MotionTimelineEditor
 
             var width = (int) tabWidth;
             TruncatedTitleEntry entry;
-            if (_truncatedTitleCache.TryGetValue(title, out entry) && entry.tabWidth == width)
+            if (cache.TryGetValue(title, out entry) && entry.tabWidth == width)
             {
                 return entry.result;
             }
@@ -265,7 +297,7 @@ namespace COM3D2.MotionTimelineEditor
                 }
             }
 
-            _truncatedTitleCache[title] = new TruncatedTitleEntry
+            cache[title] = new TruncatedTitleEntry
             {
                 tabWidth = width,
                 result = result,

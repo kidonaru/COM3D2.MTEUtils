@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.SceneManagement;
 
 namespace COM3D2.MotionTimelineEditor
@@ -235,8 +235,10 @@ namespace COM3D2.MotionTimelineEditor
                 _tabActiveIndex = activeIndex;
                 if (titles == null)
                 {
-                    // グループ離脱時は次回加入へスクロール位置を持ち越さない
+                    // グループ離脱時は次回加入へスクロール位置を持ち越さない。
+                    // タブバーを描かなくなるとメニューを閉じる機会も失うのでここで閉じる
                     _tabScrollOffset = 0;
+                    TabBarDrawer.CloseContextMenu(windowId);
                 }
             });
         }
@@ -253,6 +255,7 @@ namespace COM3D2.MotionTimelineEditor
             _tabTitles = null;
             _tabActiveIndex = -1;
             _tabScrollOffset = 0;
+            TabBarDrawer.CloseContextMenu(windowId);
         }
 
         public virtual void OnGUI()
@@ -509,6 +512,8 @@ namespace COM3D2.MotionTimelineEditor
         {
             _resize.Cancel();
             isShowWnd = false;
+            // 非表示中は DrawWindowInternal が回らずメニューを閉じられないため先に閉じる
+            TabBarDrawer.CloseContextMenu(windowId);
         }
 
         public virtual void OnLoad()
