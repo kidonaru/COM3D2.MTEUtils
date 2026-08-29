@@ -53,9 +53,40 @@ namespace COM3D2.MotionTimelineEditor
         }
 
         /// <summary>
+        /// index のタブが全部見えるところまでスクロール位置を動かして返す。
+        /// 既に収まっていれば scrollX をそのまま返す (むやみに位置を変えない)。
+        /// 描画中の自動追従はしない代わりに、タブがアクティブになった時だけ呼ぶ想定
+        /// </summary>
+        public static float ScrollToShow(int count, float availableWidth, float scrollX, int index)
+        {
+            var layout = Calc(count, availableWidth, scrollX);
+            if (!layout.scrollable || index < 0 || index >= count)
+            {
+                return layout.scrollX;
+            }
+
+            var step = layout.tabWidth + TabBarDrawer.TAB_MARGIN;
+            var left = index * step;
+            var right = left + layout.tabWidth;
+
+            var result = layout.scrollX;
+            if (left < result)
+            {
+                // 左へ隠れている: 左端を合わせる
+                result = left;
+            }
+            else if (right > result + layout.tabsAreaWidth)
+            {
+                // 右へはみ出している: 右端を合わせる
+                result = right - layout.tabsAreaWidth;
+            }
+            return Mathf.Clamp(result, 0f, layout.maxScrollX);
+        }
+
+        /// <summary>
         /// タブ列のレイアウトを求める。scrollX はタブ列を左へ送った量 (px)。
         /// タブ単位ではなく px 単位で送るので、端のタブは途中で切れて見える。
-        /// アクティブタブへの自動追従はしない (スクロール位置はユーザーの操作だけで決まる)
+        /// 描画中にアクティブタブを追従はしない (追い出したい場合は ScrollToShow を使う)
         /// </summary>
         public static Result Calc(int count, float availableWidth, float scrollX)
         {
