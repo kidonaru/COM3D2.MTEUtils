@@ -313,8 +313,9 @@ namespace COM3D2.MotionTimelineEditor
                 return;
             }
 
-            // ロック中は移動・リサイズ・ドッキング起点の入力を受け付けない (誤動作防止)
-            if (!_isLocked)
+            // ロック中は移動・リサイズ・ドッキング起点の入力を受け付けない (誤動作防止)。
+            // タブ切替メニューを閉じたクリックも、そのままウィンドウを動かさないよう見送る
+            if (!_isLocked && !TabBarDrawer.WasContextMenuClosedThisFrame(windowId))
             {
                 HandleDragInput(closeRect);
             }
@@ -329,7 +330,7 @@ namespace COM3D2.MotionTimelineEditor
 
             TabBarDrawer.Draw(
                 windowId, _tabTitles, _tabActiveIndex,
-                FRAME, (HEADER_HEIGHT - TabBarDrawer.TAB_HEIGHT) * 0.5f, available,
+                FRAME, (HEADER_HEIGHT - TabBarDrawer.TAB_HEIGHT) * 0.5f, HEADER_HEIGHT, available,
                 ref _tabScrollOffset,
                 (index, pos) => DockingClient.NotifyTabMouseDown(_dockHandle, index, pos.x, pos.y));
         }

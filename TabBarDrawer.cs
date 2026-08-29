@@ -37,6 +37,11 @@ namespace COM3D2.MotionTimelineEditor
         private static int _menuOpenedFrame = -1;
         /// <summary>ホイールでスクロールしたフレーム。OnGUI は 1 フレームに複数回走るため多重処理を防ぐ</summary>
         private static int _wheelScrolledFrame = -1;
+        // 直近でメニューを閉じたフレームと対象 window。
+        // 同じバーの右クリックによるトグル閉じと、閉じたクリックでウィンドウが
+        // 動き出すのを防ぐために使う (どちらもフレーム内だけの一時状態)
+        private static int _menuClosedFrame = -1;
+        private static int _menuClosedWindowId = -1;
         // GUI.Window のコールバックは引数を取れないため、描画に要る情報を毎フレーム控える
         private static string[] _menuTitles;
         private static int _menuActiveIndex = -1;
@@ -59,9 +64,21 @@ namespace COM3D2.MotionTimelineEditor
 
         private static void CloseContextMenu()
         {
+            _menuClosedWindowId = _menuWindowId;
+            _menuClosedFrame = Time.frameCount;
             _menuWindowId = -1;
             _menuTitles = null;
             _menuOnTabSelected = null;
+        }
+
+        /// <summary>
+        /// この window のタブ切替メニューを今フレームに閉じたか。
+        /// 閉じるためのクリックがそのままウィンドウ移動・ドッキング判定の起点に
+        /// ならないよう、呼び出し元はこのフレームだけドラッグ判定を飛ばす
+        /// </summary>
+        public static bool WasContextMenuClosedThisFrame(int windowId)
+        {
+            return _menuClosedWindowId == windowId && _menuClosedFrame == Time.frameCount;
         }
 
         /// <summary>タブ名用の中央寄せスタイル。GUIStyle は OnGUI 中でしか作れないため遅延生成する</summary>
@@ -97,7 +114,7 @@ namespace COM3D2.MotionTimelineEditor
         /// </summary>
         public static void Draw(
             int windowId, string[] titles, int activeIndex,
-            float x, float y, float availableWidth,
+            float x, float y, float headerHeight, float availableWidth,
             ref int scrollOffset,
             Action<int, Vector2> onTabMouseDown)
         {
@@ -115,55 +132,18 @@ namespace COM3D2.MotionTimelineEditor
             // クランプ・アクティブ追従の結果を呼び出し元の保持値へ書き戻す
             scrollOffset = layout.firstVisible;
 
-            var e = Event.current;
-
             // タブバー領域 (ボタンを含む availableWidth 全域) の右クリックでメニューを開閉する
-            var barRect = new Rect(x, y, availableWidth, TAB_HEIGHT);
-            if (e.type == EventType.MouseDown && e.button == 1 && barRect.Contains(e.mousePosition))
-            {
-                if (_menuWindowId == windowId)
-                {
-                    CloseContextMenu();
-                }
-                else
-                {
-                    _menuWindowId = windowId;
-                    // 位置はホストウィンドウのローカル座標で覚え、
-                    // 描画時にホスト矩形を足してスクリーン座標へ直す (ホストの移動に追従させるため)
-                    _menuAnchor = new Vector2(e.mousePosition.x, y + TAB_HEIGHT);
-                    _menuOpenedFrame = Time.frameCount;
-                }
-                e.Use();
-            }
+            HandleContextMenuInput(
+                windowId, new Rect(x, y, availableWidth, TAB_HEIGHT), y + TAB_HEIGHT);
 
             if (layout.scrollable)
             {
                 var maxOffset = count - layout.visibleCount;
+                HandleWheelScroll(
+                    new Rect(x, 0f, availableWidth, headerHeight),
+                    layout.firstVisible, maxOffset, ref scrollOffset);
 
-                // ヘッダー上のホイールで左右にスクロールする
-                // (ヘッダーには縦スクロールする物が無いので上下の回転を左右へ割り当てる)。
-                // IMGUI の ScrollWheel イベントは手前のコントロールに消費されて
-                // ここまで届かないことがあるため、SceneViewWindow 等と同じく Input の軸を直接読む。
-                // OnGUI はイベントごとに走るのでフレーム番号で 1 回だけに絞る
-                var wheelRect = new Rect(x, 0f, availableWidth, DockableWindowBase.HEADER_HEIGHT);
-                if (wheelRect.Contains(e.mousePosition))
-                {
-                    if (e.type == EventType.ScrollWheel)
-                    {
-                        // 届いた場合は下のコントロールへ流さないよう消費する
-                        e.Use();
-                    }
-
-                    var wheel = Input.GetAxis("Mouse ScrollWheel");
-                    if (wheel != 0f && _wheelScrolledFrame != Time.frameCount)
-                    {
-                        _wheelScrolledFrame = Time.frameCount;
-                        // 手前へ回す (奥がプラス) と左へ送る
-                        scrollOffset = Mathf.Clamp(
-                            layout.firstVisible + (wheel > 0f ? -1 : 1), 0, maxOffset);
-                    }
-                }
-
+                // 両端のスクロールボタン。端に達している側は無効化する
                 if (DrawScrollButton(x, y, "<", layout.firstVisible > 0))
                 {
                     scrollOffset = layout.firstVisible - 1;
@@ -176,62 +156,141 @@ namespace COM3D2.MotionTimelineEditor
                 }
             }
 
-            // タブ列はクリップ領域の中へ描く。領域からはみ出す末尾のタブは
-            // 途中で切れたまま見せて、まだ続きがあることを示す。
-            // グループ内はローカル座標になるので、以降の座標は領域左上が原点
-            var tabsAreaRect = new Rect(
-                x + layout.tabsOriginX, y, layout.tabsAreaWidth, TAB_HEIGHT);
-            GUI.BeginGroup(tabsAreaRect);
+            DrawTabs(layout, titles, activeIndex, x, y, onTabMouseDown);
+        }
 
-            // 描く範囲と開始位置 (見切れ・右詰めの分だけ前後にはみ出す) は layout が決める
-            var tabX = layout.drawOriginX;
-            for (var i = layout.firstDrawIndex; i <= layout.lastDrawIndex; i++)
+        /// <summary>
+        /// タブバーの右クリックによるメニューの開閉。
+        /// menuAnchorY は開くメニューの上端 (ウィンドウローカル)
+        /// </summary>
+        private static void HandleContextMenuInput(int windowId, Rect barRect, float menuAnchorY)
+        {
+            var e = Event.current;
+            if (e.type != EventType.MouseDown || e.button != 1 ||
+                !barRect.Contains(e.mousePosition))
             {
-                var tabRect = new Rect(tabX, y - tabsAreaRect.y, layout.tabWidth, TAB_HEIGHT);
-                var isActive = i == activeIndex;
-
-                // 押下判定はクリップ領域内に限る (見切れたタブの領域外は < > ボタンの持ち場)
-                if (e.type == EventType.MouseDown && e.button == 0 &&
-                    tabRect.Contains(e.mousePosition) &&
-                    e.mousePosition.x >= 0f && e.mousePosition.x <= layout.tabsAreaWidth)
-                {
-                    if (onTabMouseDown != null)
-                    {
-                        // grabOffset はウィンドウローカルの契約なのでグループ原点を足して戻す
-                        onTabMouseDown(i, e.mousePosition + tabsAreaRect.position);
-                    }
-                    // タブ押下でウィンドウ全体のドラッグが始まらないよう消費する
-                    e.Use();
-                }
-
-                var oldColor = GUI.color;
-                if (isActive)
-                {
-                    // アクティブ: 明るい背景 + 白文字 + 下端にアクセントライン
-                    GUI.color = new Color(1f, 1f, 1f, 0.15f);
-                    GUI.DrawTexture(tabRect, Texture2D.whiteTexture);
-                    GUI.color = ACCENT_COLOR;
-                    GUI.DrawTexture(
-                        new Rect(tabRect.x, tabRect.yMax - 2, tabRect.width, 2),
-                        Texture2D.whiteTexture);
-                    GUI.color = Color.white;
-                }
-                else
-                {
-                    // 非アクティブ: 暗い背景。ホバー中は中間の明るさにする。
-                    // 文字色はアクティブと同じ白にして、区別は背景の明暗だけで付ける
-                    var hovered = tabRect.Contains(e.mousePosition);
-                    GUI.color = new Color(0f, 0f, 0f, hovered ? 0.15f : 0.4f);
-                    GUI.DrawTexture(tabRect, Texture2D.whiteTexture);
-                    GUI.color = Color.white;
-                }
-                GUI.Label(tabRect, GetTruncatedTitle(titles[i], layout.tabWidth), tabLabelStyle);
-                GUI.color = oldColor;
-
-                tabX += layout.tabWidth + TAB_MARGIN;
+                return;
             }
 
-            GUI.EndGroup();
+            if (_menuWindowId == windowId)
+            {
+                CloseContextMenu();
+            }
+            else if (!WasContextMenuClosedThisFrame(windowId))
+            {
+                // 開いている間の押下は DrawContextMenuWindow の外側判定 (Layout パス) が
+                // 先に閉じてしまうため、このガードが無いと同じバーの右クリックで
+                // 閉じられず開き直してしまう
+                _menuWindowId = windowId;
+                // 位置はホストウィンドウのローカル座標で覚え、
+                // 描画時にホスト矩形を足してスクリーン座標へ直す (ホストの移動に追従させるため)
+                _menuAnchor = new Vector2(e.mousePosition.x, menuAnchorY);
+                _menuOpenedFrame = Time.frameCount;
+            }
+            e.Use();
+        }
+
+        /// <summary>
+        /// ヘッダー上のホイールでタブを左右へ送る
+        /// (ヘッダーには縦スクロールする物が無いので上下の回転を左右へ割り当てる)。
+        /// IMGUI の ScrollWheel イベントは手前のコントロールに消費されて
+        /// ここまで届かないことがあるため、SceneViewWindow 等と同じく Input の軸を直接読む
+        /// </summary>
+        private static void HandleWheelScroll(
+            Rect wheelRect, int firstVisible, int maxOffset, ref int scrollOffset)
+        {
+            var e = Event.current;
+            if (!wheelRect.Contains(e.mousePosition))
+            {
+                return;
+            }
+
+            if (e.type == EventType.ScrollWheel)
+            {
+                // 届いた場合は下のコントロールへ流さないよう消費する
+                e.Use();
+            }
+
+            // OnGUI はイベントごとに走るのでフレーム番号で 1 回だけに絞る
+            var wheel = Input.GetAxis("Mouse ScrollWheel");
+            if (wheel == 0f || _wheelScrolledFrame == Time.frameCount)
+            {
+                return;
+            }
+            _wheelScrolledFrame = Time.frameCount;
+            // 手前へ回す (奥がプラス) と左へ送る
+            scrollOffset = Mathf.Clamp(firstVisible + (wheel > 0f ? -1 : 1), 0, maxOffset);
+        }
+
+        /// <summary>
+        /// タブ列をクリップ領域の中へ描く。領域からはみ出すタブは
+        /// 途中で切れたまま見せて、まだ続きがあることを示す
+        /// </summary>
+        private static void DrawTabs(
+            TabBarLayout.Result layout, string[] titles, int activeIndex,
+            float x, float y, Action<int, Vector2> onTabMouseDown)
+        {
+            var e = Event.current;
+            var tabsAreaRect = new Rect(
+                x + layout.tabsOriginX, y, layout.tabsAreaWidth, TAB_HEIGHT);
+
+            // グループ内はローカル座標になるので、以降の座標は領域左上が原点
+            GUI.BeginGroup(tabsAreaRect);
+            try
+            {
+                // 描く範囲と開始位置 (見切れ・右詰めの分だけ前後にはみ出す) は layout が決める
+                var tabX = layout.drawOriginX;
+                for (var i = layout.firstDrawIndex; i <= layout.lastDrawIndex; i++)
+                {
+                    var tabRect = new Rect(tabX, 0f, layout.tabWidth, TAB_HEIGHT);
+                    var isActive = i == activeIndex;
+
+                    // 押下判定はクリップ領域内に限る (見切れたタブの領域外は < > ボタンの持ち場)
+                    if (e.type == EventType.MouseDown && e.button == 0 &&
+                        tabRect.Contains(e.mousePosition) &&
+                        e.mousePosition.x >= 0f && e.mousePosition.x <= layout.tabsAreaWidth)
+                    {
+                        if (onTabMouseDown != null)
+                        {
+                            // grabOffset はウィンドウローカルの契約なのでグループ原点を足して戻す
+                            onTabMouseDown(i, e.mousePosition + tabsAreaRect.position);
+                        }
+                        // タブ押下でウィンドウ全体のドラッグが始まらないよう消費する
+                        e.Use();
+                    }
+
+                    var oldColor = GUI.color;
+                    if (isActive)
+                    {
+                        // アクティブ: 明るい背景 + 白文字 + 下端にアクセントライン
+                        GUI.color = new Color(1f, 1f, 1f, 0.15f);
+                        GUI.DrawTexture(tabRect, Texture2D.whiteTexture);
+                        GUI.color = ACCENT_COLOR;
+                        GUI.DrawTexture(
+                            new Rect(tabRect.x, tabRect.yMax - 2, tabRect.width, 2),
+                            Texture2D.whiteTexture);
+                        GUI.color = Color.white;
+                    }
+                    else
+                    {
+                        // 非アクティブ: 暗い背景。ホバー中は中間の明るさにする。
+                        // 文字色はアクティブと同じ白にして、区別は背景の明暗だけで付ける
+                        var hovered = tabRect.Contains(e.mousePosition);
+                        GUI.color = new Color(0f, 0f, 0f, hovered ? 0.15f : 0.4f);
+                        GUI.DrawTexture(tabRect, Texture2D.whiteTexture);
+                        GUI.color = Color.white;
+                    }
+                    GUI.Label(tabRect, GetTruncatedTitle(titles[i], layout.tabWidth), tabLabelStyle);
+                    GUI.color = oldColor;
+
+                    tabX += layout.tabWidth + TAB_MARGIN;
+                }
+            }
+            finally
+            {
+                // コールバックが例外を投げてもクリップスタックを壊さない
+                GUI.EndGroup();
+            }
         }
 
         /// <summary>

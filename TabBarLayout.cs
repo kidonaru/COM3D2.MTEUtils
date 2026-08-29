@@ -79,7 +79,8 @@ namespace COM3D2.MotionTimelineEditor
             result.tabWidth = MIN_TAB_WIDTH;
             result.tabsOriginX = SCROLL_BUTTON_WIDTH + margin;
             var tabsArea = availableWidth - (SCROLL_BUTTON_WIDTH + margin) * 2;
-            result.tabsAreaWidth = tabsArea;
+            // 描画側が GUI.BeginGroup の幅に使うため負値を渡さない
+            result.tabsAreaWidth = Mathf.Max(0f, tabsArea);
             result.visibleCount = Mathf.Max(
                 1, Mathf.FloorToInt((tabsArea + margin) / (MIN_TAB_WIDTH + margin)));
             if (result.visibleCount >= count)
