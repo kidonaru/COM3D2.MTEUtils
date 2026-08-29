@@ -14,6 +14,8 @@ namespace COM3D2.MotionTimelineEditor
         public static readonly int TAB_WIDTH = 90;
         public static readonly int TAB_HEIGHT = 20;
         public static readonly int TAB_MARGIN = 2;
+        /// <summary>ホイール 1 ノッチで送る量 (px)。タブ幅より小さくして途中位置で止められるようにする</summary>
+        private const float WHEEL_SCROLL_STEP = 30f;
         /// <summary>アクティブタブのアクセント色。連結表示 (CONNECT_ACCENT_COLOR) と揃える</summary>
         public static readonly Color ACCENT_COLOR = Color.cyan;
 
@@ -105,8 +107,8 @@ namespace COM3D2.MotionTimelineEditor
         /// タブ列を描く。x/y は呼び出し元 GUI.Window のローカル座標、
         /// availableWidth はタブ列に使ってよい幅 (右側のボタン領域を除いた値)。
         /// 全タブが下限幅で収まらない場合は両端に &lt; &gt; ボタンを出し、
-        /// scrollOffset (呼び出し元ウィンドウが保持) の位置から描く。
-        /// 収まりきらない末尾のタブはクリップして見切れたまま見せる (続きがあると分かるように)。
+        /// scrollX (呼び出し元ウィンドウが保持するスクロール量 px) の位置から描く。
+        /// 送りはタブ単位ではなく px 単位なので、端のタブは途中で切れて見える。
         /// ヘッダー上のホイールでも左右にスクロールできる。
         /// タブ押下は onTabMouseDown(グループ全体でのタブindex, ウィンドウローカル押下位置) へ
         /// 通知してイベントを消費する
@@ -115,7 +117,7 @@ namespace COM3D2.MotionTimelineEditor
         public static void Draw(
             int windowId, string[] titles, int activeIndex,
             float x, float y, float headerHeight, float availableWidth,
-            ref int scrollOffset,
+            ref float scrollX,
             Action<int, Vector2> onTabMouseDown)
         {
             if (titles == null || titles.Length == 0)
@@ -124,13 +126,13 @@ namespace COM3D2.MotionTimelineEditor
             }
 
             var count = titles.Length;
-            var layout = TabBarLayout.Calc(count, availableWidth, scrollOffset, activeIndex);
-            if (layout.visibleCount <= 0)
+            var layout = TabBarLayout.Calc(count, availableWidth, scrollX);
+            if (layout.lastDrawIndex < 0)
             {
                 return;
             }
-            // クランプ・アクティブ追従の結果を呼び出し元の保持値へ書き戻す
-            scrollOffset = layout.firstVisible;
+            // クランプ結果を呼び出し元の保持値へ書き戻す
+            scrollX = layout.scrollX;
 
             // タブバー領域 (ボタンを含む availableWidth 全域) の右クリックでメニューを開閉する
             HandleContextMenuInput(
@@ -138,21 +140,20 @@ namespace COM3D2.MotionTimelineEditor
 
             if (layout.scrollable)
             {
-                var maxOffset = count - layout.visibleCount;
                 HandleWheelScroll(
-                    new Rect(x, 0f, availableWidth, headerHeight),
-                    layout.firstVisible, maxOffset, ref scrollOffset);
+                    new Rect(x, 0f, availableWidth, headerHeight), layout, ref scrollX);
 
-                // 両端のスクロールボタン。端に達している側は無効化する
-                if (DrawScrollButton(x, y, "<", layout.firstVisible > 0))
+                // 両端のスクロールボタン。1 回でタブ 1 枚ぶん送る。端に達している側は無効化する
+                var buttonStep = layout.tabWidth + TAB_MARGIN;
+                if (DrawScrollButton(x, y, "<", layout.scrollX > 0f))
                 {
-                    scrollOffset = layout.firstVisible - 1;
+                    scrollX = Mathf.Max(0f, layout.scrollX - buttonStep);
                 }
                 if (DrawScrollButton(
                         x + availableWidth - TabBarLayout.SCROLL_BUTTON_WIDTH, y, ">",
-                        layout.firstVisible < maxOffset))
+                        layout.scrollX < layout.maxScrollX))
                 {
-                    scrollOffset = layout.firstVisible + 1;
+                    scrollX = Mathf.Min(layout.maxScrollX, layout.scrollX + buttonStep);
                 }
             }
 
@@ -197,7 +198,7 @@ namespace COM3D2.MotionTimelineEditor
         /// ここまで届かないことがあるため、SceneViewWindow 等と同じく Input の軸を直接読む
         /// </summary>
         private static void HandleWheelScroll(
-            Rect wheelRect, int firstVisible, int maxOffset, ref int scrollOffset)
+            Rect wheelRect, TabBarLayout.Result layout, ref float scrollX)
         {
             var e = Event.current;
             if (!wheelRect.Contains(e.mousePosition))
@@ -219,7 +220,9 @@ namespace COM3D2.MotionTimelineEditor
             }
             _wheelScrolledFrame = Time.frameCount;
             // 手前へ回す (奥がプラス) と左へ送る
-            scrollOffset = Mathf.Clamp(firstVisible + (wheel > 0f ? -1 : 1), 0, maxOffset);
+            scrollX = Mathf.Clamp(
+                layout.scrollX + (wheel > 0f ? -WHEEL_SCROLL_STEP : WHEEL_SCROLL_STEP),
+                0f, layout.maxScrollX);
         }
 
         /// <summary>
@@ -238,7 +241,7 @@ namespace COM3D2.MotionTimelineEditor
             GUI.BeginGroup(tabsAreaRect);
             try
             {
-                // 描く範囲と開始位置 (見切れ・右詰めの分だけ前後にはみ出す) は layout が決める
+                // 描く範囲と開始位置 (両端の見切れぶんだけはみ出す) は layout が決める
                 var tabX = layout.drawOriginX;
                 for (var i = layout.firstDrawIndex; i <= layout.lastDrawIndex; i++)
                 {

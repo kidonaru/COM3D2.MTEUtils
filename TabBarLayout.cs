@@ -18,9 +18,6 @@ namespace COM3D2.MotionTimelineEditor
             public float tabWidth;
             /// <summary>全タブが収まらずスクロールボタンを出すか</summary>
             public bool scrollable;
-            /// <summary>表示する先頭タブの index (クランプ・アクティブ追従適用済み)</summary>
-            public int firstVisible;
-            public int visibleCount;
             /// <summary>タブ列の描画開始 X (タブバー左端からの相対)</summary>
             public float tabsOriginX;
             /// <summary>
@@ -28,13 +25,17 @@ namespace COM3D2.MotionTimelineEditor
             /// 描画側はこの幅でクリップし、収まりきらないタブを見切れたまま見せる
             /// </summary>
             public float tabsAreaWidth;
-            /// <summary>実際に描くタブの先頭 index (見切れる手前の 1 枚を含む)</summary>
+            /// <summary>クランプ済みのスクロール位置 (px)。呼び出し元はこの値を保持し直す</summary>
+            public float scrollX;
+            /// <summary>スクロール位置の上限 (px)。これ以上送るとタブ列の右端が浮く</summary>
+            public float maxScrollX;
+            /// <summary>実際に描くタブの先頭 index (左で見切れる 1 枚を含む)</summary>
             public int firstDrawIndex;
-            /// <summary>実際に描くタブの末尾 index (見切れる先の 1 枚を含む)。-1 なら描画なし</summary>
+            /// <summary>実際に描くタブの末尾 index (右で見切れる 1 枚を含む)。-1 なら描画なし</summary>
             public int lastDrawIndex;
             /// <summary>
             /// firstDrawIndex のタブを描き始める X (タブ領域左端からの相対)。
-            /// 見切れ描画と右詰めのため負になりうる
+            /// 左端のタブを見切れさせるため負になりうる
             /// </summary>
             public float drawOriginX;
         }
@@ -51,7 +52,12 @@ namespace COM3D2.MotionTimelineEditor
                 - (DockableWindowBase.LOCK_BUTTON_WIDTH + DockableWindowBase.CLOSE_BUTTON_MARGIN);
         }
 
-        public static Result Calc(int count, float availableWidth, int scrollOffset, int activeIndex)
+        /// <summary>
+        /// タブ列のレイアウトを求める。scrollX はタブ列を左へ送った量 (px)。
+        /// タブ単位ではなく px 単位で送るので、端のタブは途中で切れて見える。
+        /// アクティブタブへの自動追従はしない (スクロール位置はユーザーの操作だけで決まる)
+        /// </summary>
+        public static Result Calc(int count, float availableWidth, float scrollX)
         {
             var result = new Result();
             result.lastDrawIndex = -1;
@@ -67,68 +73,34 @@ namespace COM3D2.MotionTimelineEditor
 
             if (shrunkWidth >= MIN_TAB_WIDTH)
             {
+                // 全部収まるので縮小するだけ。スクロールもクリップも要らない
                 result.tabWidth = shrunkWidth;
-                result.visibleCount = count;
                 result.tabsAreaWidth = availableWidth;
                 result.lastDrawIndex = count - 1;
                 return result;
             }
 
-            // スクロールモード: 幅は下限固定、両端のボタン分を除いた領域に入る枚数だけ表示する
+            // スクロールモード: 幅は下限固定、両端のボタン分を除いた領域をクリップ窓にする
             result.scrollable = true;
             result.tabWidth = MIN_TAB_WIDTH;
             result.tabsOriginX = SCROLL_BUTTON_WIDTH + margin;
-            var tabsArea = availableWidth - (SCROLL_BUTTON_WIDTH + margin) * 2;
             // 描画側が GUI.BeginGroup の幅に使うため負値を渡さない
-            result.tabsAreaWidth = Mathf.Max(0f, tabsArea);
-            result.visibleCount = Mathf.Max(
-                1, Mathf.FloorToInt((tabsArea + margin) / (MIN_TAB_WIDTH + margin)));
-            if (result.visibleCount >= count)
-            {
-                // 防御分岐: shrunkWidth < MIN の時点で数学的にここへは到達しないはずだが、
-                // 万一入った場合はボタンなしの非スクロール表示へフォールバックする
-                result.scrollable = false;
-                result.tabsOriginX = 0f;
-                result.tabsAreaWidth = availableWidth;
-                result.visibleCount = count;
-                result.lastDrawIndex = count - 1;
-                return result;
-            }
+            result.tabsAreaWidth = Mathf.Max(
+                0f, availableWidth - (SCROLL_BUTTON_WIDTH + margin) * 2);
 
-            var maxOffset = count - result.visibleCount;
-            var first = Mathf.Clamp(scrollOffset, 0, maxOffset);
+            var step = MIN_TAB_WIDTH + margin;
+            var contentWidth = count * MIN_TAB_WIDTH + (count - 1) * margin;
+            // 右端まで送ったら最後のタブがクリップ窓の右端へ揃う (端数の空きを残さない)
+            result.maxScrollX = Mathf.Max(0f, contentWidth - result.tabsAreaWidth);
+            result.scrollX = Mathf.Clamp(scrollX, 0f, result.maxScrollX);
 
-            // アクティブタブが常に見えるよう追従する (切替直後に見失わないため)
-            if (activeIndex >= 0 && activeIndex < count)
-            {
-                if (activeIndex < first)
-                {
-                    first = activeIndex;
-                }
-                else if (activeIndex > first + result.visibleCount - 1)
-                {
-                    first = activeIndex - result.visibleCount + 1;
-                }
-            }
-
-            result.firstVisible = first;
-
-            // 末尾まで来ていたら最後のタブを領域の右端へ揃える (最後のタブが
-            // アクティブなときに端数の空きが右に残らないようにする)。
-            // 左に空いたぶんは手前のタブを見切れさせて埋める
-            var step = result.tabWidth + margin;
-            var rowWidth = result.visibleCount * result.tabWidth + (result.visibleCount - 1) * margin;
-            var shift = first == maxOffset ? tabsArea - rowWidth : 0f;
-
-            result.firstDrawIndex = first;
-            result.drawOriginX = shift;
-            if (shift > 0f && first > 0)
-            {
-                result.firstDrawIndex = first - 1;
-                result.drawOriginX = shift - step;
-            }
-            // 末尾側も 1 枚多く描いて見切れさせる (最後まで来ていれば存在しないので Min で止める)
-            result.lastDrawIndex = Mathf.Min(count - 1, first + result.visibleCount);
+            // クリップ窓 [scrollX, scrollX + tabsAreaWidth] に掛かるタブを描く。
+            // 端は途中で切れるので、境界に跨る 1 枚も範囲へ含める
+            result.firstDrawIndex = Mathf.Clamp(
+                Mathf.FloorToInt(result.scrollX / step), 0, count - 1);
+            result.lastDrawIndex = Mathf.Clamp(
+                Mathf.FloorToInt((result.scrollX + result.tabsAreaWidth) / step), 0, count - 1);
+            result.drawOriginX = result.firstDrawIndex * step - result.scrollX;
             return result;
         }
     }

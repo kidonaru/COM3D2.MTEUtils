@@ -116,8 +116,8 @@ namespace COM3D2.MotionTimelineEditor
         /// <summary>ホストから push されたタブバー状態。null はグループ非加入</summary>
         private string[] _tabTitles;
         private int _tabActiveIndex = -1;
-        /// <summary>タブ列のスクロール位置 (先頭に描くタブの index)。TabBarDrawer が書き戻す</summary>
-        private int _tabScrollOffset;
+        /// <summary>タブ列のスクロール位置 (px)。クランプ結果を TabBarDrawer が書き戻す</summary>
+        private float _tabScrollX;
 
         /// <summary>ドッキング中に非アクティブタブとして畳まれていないか (従属ポップアップの追従判定用)</summary>
         public bool isTabVisible => !_dockTabHidden;
@@ -237,7 +237,7 @@ namespace COM3D2.MotionTimelineEditor
                 {
                     // グループ離脱時は次回加入へスクロール位置を持ち越さない。
                     // タブバーを描かなくなるとメニューを閉じる機会も失うのでここで閉じる
-                    _tabScrollOffset = 0;
+                    _tabScrollX = 0f;
                     TabBarDrawer.CloseContextMenu(windowId);
                 }
             });
@@ -254,7 +254,7 @@ namespace COM3D2.MotionTimelineEditor
             _dockTabHidden = false;
             _tabTitles = null;
             _tabActiveIndex = -1;
-            _tabScrollOffset = 0;
+            _tabScrollX = 0f;
             TabBarDrawer.CloseContextMenu(windowId);
         }
 
@@ -331,7 +331,7 @@ namespace COM3D2.MotionTimelineEditor
             TabBarDrawer.Draw(
                 windowId, _tabTitles, _tabActiveIndex,
                 FRAME, (HEADER_HEIGHT - TabBarDrawer.TAB_HEIGHT) * 0.5f, HEADER_HEIGHT, available,
-                ref _tabScrollOffset,
+                ref _tabScrollX,
                 (index, pos) => DockingClient.NotifyTabMouseDown(_dockHandle, index, pos.x, pos.y));
         }
 
