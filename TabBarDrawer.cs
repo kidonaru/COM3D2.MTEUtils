@@ -35,6 +35,8 @@ namespace COM3D2.MotionTimelineEditor
         private static Rect _menuScreenRect;
         /// <summary>メニューを開いたフレーム。開いた直後の押下で即閉じないためのガード</summary>
         private static int _menuOpenedFrame = -1;
+        /// <summary>ホイールでスクロールしたフレーム。OnGUI は 1 フレームに複数回走るため多重処理を防ぐ</summary>
+        private static int _wheelScrolledFrame = -1;
         // GUI.Window のコールバックは引数を取れないため、描画に要る情報を毎フレーム控える
         private static string[] _menuTitles;
         private static int _menuActiveIndex = -1;
@@ -138,15 +140,28 @@ namespace COM3D2.MotionTimelineEditor
             {
                 var maxOffset = count - layout.visibleCount;
 
-                // ヘッダー上のホイールで左右にスクロールする。
-                // ヘッダーには縦スクロールする物が無いので上下の回転をそのまま左右へ割り当てる
+                // ヘッダー上のホイールで左右にスクロールする
+                // (ヘッダーには縦スクロールする物が無いので上下の回転を左右へ割り当てる)。
+                // IMGUI の ScrollWheel イベントは手前のコントロールに消費されて
+                // ここまで届かないことがあるため、SceneViewWindow 等と同じく Input の軸を直接読む。
+                // OnGUI はイベントごとに走るのでフレーム番号で 1 回だけに絞る
                 var wheelRect = new Rect(x, 0f, availableWidth, DockableWindowBase.HEADER_HEIGHT);
-                if (e.type == EventType.ScrollWheel && wheelRect.Contains(e.mousePosition))
+                if (wheelRect.Contains(e.mousePosition))
                 {
-                    scrollOffset = Mathf.Clamp(
-                        layout.firstVisible + (e.delta.y > 0f ? 1 : -1), 0, maxOffset);
-                    // ゲーム側へホイールを流さない
-                    e.Use();
+                    if (e.type == EventType.ScrollWheel)
+                    {
+                        // 届いた場合は下のコントロールへ流さないよう消費する
+                        e.Use();
+                    }
+
+                    var wheel = Input.GetAxis("Mouse ScrollWheel");
+                    if (wheel != 0f && _wheelScrolledFrame != Time.frameCount)
+                    {
+                        _wheelScrolledFrame = Time.frameCount;
+                        // 手前へ回す (奥がプラス) と左へ送る
+                        scrollOffset = Mathf.Clamp(
+                            layout.firstVisible + (wheel > 0f ? -1 : 1), 0, maxOffset);
+                    }
                 }
 
                 if (DrawScrollButton(x, y, "<", layout.firstVisible > 0))
@@ -168,10 +183,9 @@ namespace COM3D2.MotionTimelineEditor
                 x + layout.tabsOriginX, y, layout.tabsAreaWidth, TAB_HEIGHT);
             GUI.BeginGroup(tabsAreaRect);
 
-            var tabX = 0f;
-            // 見切れるぶんを 1 枚多く描く (最後まで来ていれば存在しないので Min で止める)
-            var last = Mathf.Min(count - 1, layout.firstVisible + layout.visibleCount);
-            for (var i = layout.firstVisible; i <= last; i++)
+            // 描く範囲と開始位置 (見切れ・右詰めの分だけ前後にはみ出す) は layout が決める
+            var tabX = layout.drawOriginX;
+            for (var i = layout.firstDrawIndex; i <= layout.lastDrawIndex; i++)
             {
                 var tabRect = new Rect(tabX, y - tabsAreaRect.y, layout.tabWidth, TAB_HEIGHT);
                 var isActive = i == activeIndex;
@@ -179,7 +193,7 @@ namespace COM3D2.MotionTimelineEditor
                 // 押下判定はクリップ領域内に限る (見切れたタブの領域外は < > ボタンの持ち場)
                 if (e.type == EventType.MouseDown && e.button == 0 &&
                     tabRect.Contains(e.mousePosition) &&
-                    e.mousePosition.x <= layout.tabsAreaWidth)
+                    e.mousePosition.x >= 0f && e.mousePosition.x <= layout.tabsAreaWidth)
                 {
                     if (onTabMouseDown != null)
                     {

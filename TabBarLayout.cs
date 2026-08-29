@@ -28,6 +28,15 @@ namespace COM3D2.MotionTimelineEditor
             /// 描画側はこの幅でクリップし、収まりきらないタブを見切れたまま見せる
             /// </summary>
             public float tabsAreaWidth;
+            /// <summary>実際に描くタブの先頭 index (見切れる手前の 1 枚を含む)</summary>
+            public int firstDrawIndex;
+            /// <summary>実際に描くタブの末尾 index (見切れる先の 1 枚を含む)。-1 なら描画なし</summary>
+            public int lastDrawIndex;
+            /// <summary>
+            /// firstDrawIndex のタブを描き始める X (タブ領域左端からの相対)。
+            /// 見切れ描画と右詰めのため負になりうる
+            /// </summary>
+            public float drawOriginX;
         }
 
         /// <summary>
@@ -45,6 +54,7 @@ namespace COM3D2.MotionTimelineEditor
         public static Result Calc(int count, float availableWidth, int scrollOffset, int activeIndex)
         {
             var result = new Result();
+            result.lastDrawIndex = -1;
             if (count <= 0)
             {
                 return result;
@@ -60,6 +70,7 @@ namespace COM3D2.MotionTimelineEditor
                 result.tabWidth = shrunkWidth;
                 result.visibleCount = count;
                 result.tabsAreaWidth = availableWidth;
+                result.lastDrawIndex = count - 1;
                 return result;
             }
 
@@ -79,6 +90,7 @@ namespace COM3D2.MotionTimelineEditor
                 result.tabsOriginX = 0f;
                 result.tabsAreaWidth = availableWidth;
                 result.visibleCount = count;
+                result.lastDrawIndex = count - 1;
                 return result;
             }
 
@@ -99,6 +111,23 @@ namespace COM3D2.MotionTimelineEditor
             }
 
             result.firstVisible = first;
+
+            // 末尾まで来ていたら最後のタブを領域の右端へ揃える (最後のタブが
+            // アクティブなときに端数の空きが右に残らないようにする)。
+            // 左に空いたぶんは手前のタブを見切れさせて埋める
+            var step = result.tabWidth + margin;
+            var rowWidth = result.visibleCount * result.tabWidth + (result.visibleCount - 1) * margin;
+            var shift = first == maxOffset ? tabsArea - rowWidth : 0f;
+
+            result.firstDrawIndex = first;
+            result.drawOriginX = shift;
+            if (shift > 0f && first > 0)
+            {
+                result.firstDrawIndex = first - 1;
+                result.drawOriginX = shift - step;
+            }
+            // 末尾側も 1 枚多く描いて見切れさせる (最後まで来ていれば存在しないので Min で止める)
+            result.lastDrawIndex = Mathf.Min(count - 1, first + result.visibleCount);
             return result;
         }
     }
