@@ -107,18 +107,21 @@ namespace COM3D2.MotionTimelineEditor
         /// タブ列を描く。x/y は呼び出し元 GUI.Window のローカル座標、
         /// availableWidth はタブ列に使ってよい幅 (右側のボタン領域を除いた値)。
         /// 全タブが下限幅で収まらない場合は両端に &lt; &gt; ボタンを出し、
-        /// scrollX (呼び出し元ウィンドウが保持するスクロール量 px) の位置から描く。
+        /// scrollX (グループが保持するスクロール量 px) の位置から描く。
         /// 送りはタブ単位ではなく px 単位なので、端のタブは途中で切れて見える。
         /// ヘッダー上のホイールでも左右にスクロールできる。
         /// タブ押下は onTabMouseDown(グループ全体でのタブindex, ウィンドウローカル押下位置) へ
         /// 通知してイベントを消費する
-        /// (アクティブ化とつまみドラッグ候補の処理は呼び出し側の責務)
+        /// (アクティブ化とつまみドラッグ候補の処理は呼び出し側の責務)。
+        /// &lt; &gt; ボタンは隣のタブをクリックしたのと同じ扱いで onTabSelected へ通知する
+        /// (押下由来ではないのでつまみドラッグ候補は記録させない)
         /// </summary>
         public static void Draw(
             int windowId, string[] titles, int activeIndex,
             float x, float y, float headerHeight, float availableWidth,
             ref float scrollX,
-            Action<int, Vector2> onTabMouseDown)
+            Action<int, Vector2> onTabMouseDown,
+            Action<int> onTabSelected)
         {
             if (titles == null || titles.Length == 0)
             {
@@ -143,17 +146,17 @@ namespace COM3D2.MotionTimelineEditor
                 HandleWheelScroll(
                     new Rect(x, 0f, availableWidth, headerHeight), layout, ref scrollX);
 
-                // 両端のスクロールボタン。1 回でタブ 1 枚ぶん送る。端に達している側は無効化する
-                var buttonStep = layout.tabWidth + TAB_MARGIN;
-                if (DrawScrollButton(x, y, "<", layout.scrollX > 0f))
+                // 両端のボタンは隣のタブをクリックしたのと同じ扱い (アクティブを 1 つ送る)。
+                // 表示位置はアクティブ切替に伴う寄せが面倒を見るのでここでは動かさない
+                if (DrawScrollButton(x, y, "<", activeIndex > 0) && onTabSelected != null)
                 {
-                    scrollX = Mathf.Max(0f, layout.scrollX - buttonStep);
+                    onTabSelected(activeIndex - 1);
                 }
                 if (DrawScrollButton(
                         x + availableWidth - TabBarLayout.SCROLL_BUTTON_WIDTH, y, ">",
-                        layout.scrollX < layout.maxScrollX))
+                        activeIndex >= 0 && activeIndex < count - 1) && onTabSelected != null)
                 {
-                    scrollX = Mathf.Min(layout.maxScrollX, layout.scrollX + buttonStep);
+                    onTabSelected(activeIndex + 1);
                 }
             }
 

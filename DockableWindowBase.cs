@@ -348,7 +348,8 @@ namespace COM3D2.MotionTimelineEditor
                 windowId, _tabTitles, _tabActiveIndex,
                 FRAME, (HEADER_HEIGHT - TabBarDrawer.TAB_HEIGHT) * 0.5f, HEADER_HEIGHT, available,
                 ref scrollX,
-                (index, pos) => DockingClient.NotifyTabMouseDown(_dockHandle, index, pos.x, pos.y));
+                (index, pos) => DockingClient.NotifyTabMouseDown(_dockHandle, index, pos.x, pos.y),
+                index => DockingClient.ActivateTabIndex(_dockHandle, index));
             _tabScrollX = scrollX;
             DockingClient.SetTabScrollX(_dockHandle, scrollX);
         }
