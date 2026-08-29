@@ -22,6 +22,22 @@ namespace COM3D2.MotionTimelineEditor
         private static GUIStyle _tabLabelStyle;
 
         /// <summary>
+        /// タブ列を描くヘッダー領域のジオメトリ (すべて呼び出し元 GUI.Window のローカル座標)。
+        /// 個別引数で渡すと Draw の引数が並びすぎて対応付けを間違えやすいのでまとめる
+        /// </summary>
+        public struct Geometry
+        {
+            /// <summary>タブ列の左端</summary>
+            public float x;
+            /// <summary>タブ列の上端 (ヘッダー内で縦中央に来る位置)</summary>
+            public float y;
+            /// <summary>ヘッダーの高さ。ホイール判定の縦範囲に使う</summary>
+            public float headerHeight;
+            /// <summary>タブ列に使ってよい幅 (右側のボタン領域を除いた値)</summary>
+            public float availableWidth;
+        }
+
+        /// <summary>
         /// タブ切替メニューを描く GUI.Window の ID。
         /// 開いているメニューは常に 1 つ (別のタブバーを右クリックすると前のは閉じる) なので
         /// ゲスト側へコピーされた TabBarDrawer と共有しても衝突しない。
@@ -104,8 +120,7 @@ namespace COM3D2.MotionTimelineEditor
         }
 
         /// <summary>
-        /// タブ列を描く。x/y は呼び出し元 GUI.Window のローカル座標、
-        /// availableWidth はタブ列に使ってよい幅 (右側のボタン領域を除いた値)。
+        /// タブ列を描く。位置と幅は geo (呼び出し元 GUI.Window のローカル座標) で渡す。
         /// 全タブが下限幅で収まらない場合は両端に &lt; &gt; ボタンを出し、
         /// scrollX (グループが保持するスクロール量 px) の位置から描く。
         /// 送りはタブ単位ではなく px 単位なので、端のタブは途中で切れて見える。
@@ -117,8 +132,7 @@ namespace COM3D2.MotionTimelineEditor
         /// (押下由来ではないのでつまみドラッグ候補は記録させない)
         /// </summary>
         public static void Draw(
-            int windowId, string[] titles, int activeIndex,
-            float x, float y, float headerHeight, float availableWidth,
+            int windowId, string[] titles, int activeIndex, Geometry geo,
             ref float scrollX,
             Action<int, Vector2> onTabMouseDown,
             Action<int> onTabSelected)
@@ -129,7 +143,7 @@ namespace COM3D2.MotionTimelineEditor
             }
 
             var count = titles.Length;
-            var layout = TabBarLayout.Calc(count, availableWidth, scrollX);
+            var layout = TabBarLayout.Calc(count, geo.availableWidth, scrollX);
             if (layout.lastDrawIndex < 0)
             {
                 return;
@@ -139,28 +153,31 @@ namespace COM3D2.MotionTimelineEditor
 
             // タブバー領域 (ボタンを含む availableWidth 全域) の右クリックでメニューを開閉する
             HandleContextMenuInput(
-                windowId, new Rect(x, y, availableWidth, TAB_HEIGHT), y + TAB_HEIGHT);
+                windowId,
+                new Rect(geo.x, geo.y, geo.availableWidth, TAB_HEIGHT),
+                geo.y + TAB_HEIGHT);
 
             if (layout.scrollable)
             {
                 HandleWheelScroll(
-                    new Rect(x, 0f, availableWidth, headerHeight), layout, ref scrollX);
+                    new Rect(geo.x, 0f, geo.availableWidth, geo.headerHeight),
+                    layout, ref scrollX);
 
                 // 両端のボタンは隣のタブをクリックしたのと同じ扱い (アクティブを 1 つ送る)。
                 // 表示位置はアクティブ切替に伴う寄せが面倒を見るのでここでは動かさない
-                if (DrawScrollButton(x, y, "<", activeIndex > 0) && onTabSelected != null)
+                if (DrawScrollButton(geo.x, geo.y, "<", activeIndex > 0) && onTabSelected != null)
                 {
                     onTabSelected(activeIndex - 1);
                 }
                 if (DrawScrollButton(
-                        x + availableWidth - TabBarLayout.SCROLL_BUTTON_WIDTH, y, ">",
+                        geo.x + geo.availableWidth - TabBarLayout.SCROLL_BUTTON_WIDTH, geo.y, ">",
                         activeIndex >= 0 && activeIndex < count - 1) && onTabSelected != null)
                 {
                     onTabSelected(activeIndex + 1);
                 }
             }
 
-            DrawTabs(layout, titles, activeIndex, x, y, onTabMouseDown);
+            DrawTabs(layout, titles, activeIndex, geo, onTabMouseDown);
         }
 
         /// <summary>
@@ -234,11 +251,11 @@ namespace COM3D2.MotionTimelineEditor
         /// </summary>
         private static void DrawTabs(
             TabBarLayout.Result layout, string[] titles, int activeIndex,
-            float x, float y, Action<int, Vector2> onTabMouseDown)
+            Geometry geo, Action<int, Vector2> onTabMouseDown)
         {
             var e = Event.current;
             var tabsAreaRect = new Rect(
-                x + layout.tabsOriginX, y, layout.tabsAreaWidth, TAB_HEIGHT);
+                geo.x + layout.tabsOriginX, geo.y, layout.tabsAreaWidth, TAB_HEIGHT);
 
             // グループ内はローカル座標になるので、以降の座標は領域左上が原点
             GUI.BeginGroup(tabsAreaRect);

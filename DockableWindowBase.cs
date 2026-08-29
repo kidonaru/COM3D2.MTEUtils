@@ -339,21 +339,28 @@ namespace COM3D2.MotionTimelineEditor
         {
             // タブ列がヘッダー右のボタン (閉じる + ロック) へ食い込まないよう、
             // 利用可能幅の算出は TabBarLayout へ集約している
-            var available = TabBarLayout.CalcAvailableWidth(_windowRect.width);
+            var geo = new TabBarDrawer.Geometry
+            {
+                x = FRAME,
+                y = (HEADER_HEIGHT - TabBarDrawer.TAB_HEIGHT) * 0.5f,
+                headerHeight = HEADER_HEIGHT,
+                availableWidth = TabBarLayout.CalcAvailableWidth(_windowRect.width),
+            };
 
             // スクロール位置はグループの状態なのでホストの値を優先する
             // (窓ごとに持つとタブ切替のたびに別の窓が覚えていた位置へ飛ぶ)
             var before = DockingClient.GetTabScrollX(_dockHandle, _tabScrollX);
             var scrollX = before;
             TabBarDrawer.Draw(
-                windowId, _tabTitles, _tabActiveIndex,
-                FRAME, (HEADER_HEIGHT - TabBarDrawer.TAB_HEIGHT) * 0.5f, HEADER_HEIGHT, available,
+                windowId, _tabTitles, _tabActiveIndex, geo,
                 ref scrollX,
                 (index, pos) => DockingClient.NotifyTabMouseDown(_dockHandle, index, pos.x, pos.y),
                 index => DockingClient.ActivateTabIndex(_dockHandle, index));
 
             // 描画中のコールバック (タブ切替) でホスト側が書き換わっていたらそちらが新しい。
-            // 無条件に書き戻すと、切替に伴う「見切れたタブへの寄せ」を古い位置で潰してしまう
+            // 無条件に書き戻すと、切替に伴う「見切れたタブへの寄せ」を古い位置で潰してしまう。
+            // この比較が成立するのは、コールバック (NotifyTabMouseDown / ActivateTabIndex) が
+            // Draw の中から同期的にホストのタブ状態更新まで到達するため
             var current = DockingClient.GetTabScrollX(_dockHandle, before);
             if (current != before)
             {
