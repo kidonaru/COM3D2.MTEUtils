@@ -19,6 +19,18 @@ namespace COM3D2.MotionTimelineEditor
 
         private static GUIStyle _tabLabelStyle;
 
+        // ---- 右クリックメニュー状態 (同時に開くのは 1 窓だけなので static で持つ) ----
+        private static int _menuWindowId = -1;
+        private static Rect _menuRect;
+        private const float MENU_ITEM_HEIGHT = 22f;
+        private const float MENU_WIDTH = 140f;
+
+        /// <summary>この window でタブ切替メニューが開いているか</summary>
+        public static bool IsContextMenuOpen(int windowId)
+        {
+            return _menuWindowId == windowId;
+        }
+
         /// <summary>タブ名用の中央寄せスタイル。GUIStyle は OnGUI 中でしか作れないため遅延生成する</summary>
         private static GUIStyle tabLabelStyle
         {
@@ -49,7 +61,7 @@ namespace COM3D2.MotionTimelineEditor
         /// (アクティブ化とつまみドラッグ候補の処理は呼び出し側の責務)
         /// </summary>
         public static void Draw(
-            string[] titles, int activeIndex,
+            int windowId, string[] titles, int activeIndex,
             float x, float y, float availableWidth,
             ref int scrollOffset,
             Action<int, Vector2> onTabMouseDown)
@@ -69,6 +81,17 @@ namespace COM3D2.MotionTimelineEditor
             scrollOffset = layout.firstVisible;
 
             var e = Event.current;
+
+            // タブバー領域 (ボタンを含む availableWidth 全域) の右クリックでメニューを開く
+            var barRect = new Rect(x, y, availableWidth, TAB_HEIGHT);
+            if (e.type == EventType.MouseDown && e.button == 1 && barRect.Contains(e.mousePosition))
+            {
+                _menuWindowId = windowId;
+                _menuRect = new Rect(
+                    e.mousePosition.x, y + TAB_HEIGHT,
+                    MENU_WIDTH, count * MENU_ITEM_HEIGHT);
+                e.Use();
+            }
 
             if (layout.scrollable)
             {
@@ -127,6 +150,55 @@ namespace COM3D2.MotionTimelineEditor
                 GUI.color = oldColor;
 
                 tabX += layout.tabWidth + TAB_MARGIN;
+            }
+        }
+
+        /// <summary>
+        /// 右クリックで開いたタブ一覧メニュー。DrawWindow の最後 (全コントロールの後) に
+        /// 呼んで最前面へ描く。メニュー外クリックか項目選択で閉じる
+        /// </summary>
+        public static void DrawContextMenu(
+            int windowId, string[] titles, int activeIndex, Action<int> onTabSelected)
+        {
+            if (_menuWindowId != windowId || titles == null)
+            {
+                return;
+            }
+
+            var e = Event.current;
+            // メニュー外の押下で閉じる (項目押下は下のボタンが先に拾う)
+            if (e.type == EventType.MouseDown && !_menuRect.Contains(e.mousePosition))
+            {
+                _menuWindowId = -1;
+                return;
+            }
+
+            // 背景 (下のコントロールが透けて見えないよう不透明寄りにする)
+            var oldColor = GUI.color;
+            GUI.color = new Color(0.1f, 0.1f, 0.1f, 0.95f);
+            GUI.DrawTexture(_menuRect, Texture2D.whiteTexture);
+            GUI.color = oldColor;
+
+            for (var i = 0; i < titles.Length; i++)
+            {
+                var itemRect = new Rect(
+                    _menuRect.x, _menuRect.y + i * MENU_ITEM_HEIGHT,
+                    MENU_WIDTH, MENU_ITEM_HEIGHT);
+                var isActive = i == activeIndex;
+                if (isActive)
+                {
+                    GUI.color = new Color(1f, 1f, 1f, 0.15f);
+                    GUI.DrawTexture(itemRect, Texture2D.whiteTexture);
+                    GUI.color = oldColor;
+                }
+                if (GUI.Button(itemRect, GetTruncatedTitle(titles[i], MENU_WIDTH), tabLabelStyle))
+                {
+                    _menuWindowId = -1;
+                    if (!isActive && onTabSelected != null)
+                    {
+                        onTabSelected(i);
+                    }
+                }
             }
         }
 

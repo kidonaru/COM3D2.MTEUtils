@@ -42,6 +42,10 @@ namespace COM3D2.MotionTimelineEditor
         // 単独で完結する機能なのでスナップ/コネクト系とは別に検出する
         private static Action<object> _activateTab;
 
+        // グループ内 index 指定のタブアクティブ化 (ホストが旧バージョンだと存在しない)。
+        // 右クリックメニュー専用の後発 API なので _activateTab とは別に検出する
+        private static Action<object, int> _activateTabIndex;
+
         // タブバー描画系 (ホストが旧バージョンだと存在しない)。ペアで一括検出する
         private static Action<object, Action<string[], int>> _enableTabBar;
         private static Action<object, int, float, float> _notifyTabMouseDown;
@@ -175,6 +179,14 @@ namespace COM3D2.MotionTimelineEditor
                     _activateTab = (Action<object>)Delegate.CreateDelegate(
                         typeof(Action<object>), activateTab);
                 }
+
+                // index 指定のアクティブ化も後発 API のため任意
+                var activateTabIndex = type.GetMethod("ActivateTabIndex", BindingFlags.Public | BindingFlags.Static);
+                if (activateTabIndex != null)
+                {
+                    _activateTabIndex = (Action<object, int>)Delegate.CreateDelegate(
+                        typeof(Action<object, int>), activateTabIndex);
+                }
             }
             catch (Exception e)
             {
@@ -193,6 +205,7 @@ namespace COM3D2.MotionTimelineEditor
                 _enableTabBar = null;
                 _notifyTabMouseDown = null;
                 _activateTab = null;
+                _activateTabIndex = null;
             }
         }
 
@@ -336,6 +349,28 @@ namespace COM3D2.MotionTimelineEditor
             if (handle != null && isActivateTabAvailable)
             {
                 _activateTab(handle);
+            }
+        }
+
+        /// <summary>index 指定のアクティブ化が使えるか (旧ホストでは false)</summary>
+        public static bool isActivateTabIndexAvailable
+        {
+            get
+            {
+                Initialize();
+                return _activateTabIndex != null;
+            }
+        }
+
+        /// <summary>
+        /// メニュー選択でグループ内 index のタブをアクティブ化する。
+        /// 未対応ホスト・未登録なら何もしない
+        /// </summary>
+        public static void ActivateTabIndex(object handle, int tabIndex)
+        {
+            if (handle != null && isActivateTabIndexAvailable)
+            {
+                _activateTabIndex(handle, tabIndex);
             }
         }
     }
