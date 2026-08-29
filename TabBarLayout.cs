@@ -23,6 +23,11 @@ namespace COM3D2.MotionTimelineEditor
             public int visibleCount;
             /// <summary>タブ列の描画開始 X (タブバー左端からの相対)</summary>
             public float tabsOriginX;
+            /// <summary>
+            /// タブ列を描いてよい幅 (スクロール時は &lt; &gt; ボタンを除いた領域)。
+            /// 描画側はこの幅でクリップし、収まりきらないタブを見切れたまま見せる
+            /// </summary>
+            public float tabsAreaWidth;
         }
 
         /// <summary>
@@ -54,6 +59,7 @@ namespace COM3D2.MotionTimelineEditor
             {
                 result.tabWidth = shrunkWidth;
                 result.visibleCount = count;
+                result.tabsAreaWidth = availableWidth;
                 return result;
             }
 
@@ -62,6 +68,7 @@ namespace COM3D2.MotionTimelineEditor
             result.tabWidth = MIN_TAB_WIDTH;
             result.tabsOriginX = SCROLL_BUTTON_WIDTH + margin;
             var tabsArea = availableWidth - (SCROLL_BUTTON_WIDTH + margin) * 2;
+            result.tabsAreaWidth = tabsArea;
             result.visibleCount = Mathf.Max(
                 1, Mathf.FloorToInt((tabsArea + margin) / (MIN_TAB_WIDTH + margin)));
             if (result.visibleCount >= count)
@@ -70,6 +77,7 @@ namespace COM3D2.MotionTimelineEditor
                 // 万一入った場合はボタンなしの非スクロール表示へフォールバックする
                 result.scrollable = false;
                 result.tabsOriginX = 0f;
+                result.tabsAreaWidth = availableWidth;
                 result.visibleCount = count;
                 return result;
             }

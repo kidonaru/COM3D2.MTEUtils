@@ -86,7 +86,9 @@ namespace COM3D2.MotionTimelineEditor
         /// タブ列を描く。x/y は呼び出し元 GUI.Window のローカル座標、
         /// availableWidth はタブ列に使ってよい幅 (右側のボタン領域を除いた値)。
         /// 全タブが下限幅で収まらない場合は両端に &lt; &gt; ボタンを出し、
-        /// scrollOffset (呼び出し元ウィンドウが保持) の位置から見える枚数だけ描く。
+        /// scrollOffset (呼び出し元ウィンドウが保持) の位置から描く。
+        /// 収まりきらない末尾のタブはクリップして見切れたまま見せる (続きがあると分かるように)。
+        /// ヘッダー上のホイールでも左右にスクロールできる。
         /// タブ押下は onTabMouseDown(グループ全体でのタブindex, ウィンドウローカル押下位置) へ
         /// 通知してイベントを消費する
         /// (アクティブ化とつまみドラッグ候補の処理は呼び出し側の責務)
@@ -135,6 +137,18 @@ namespace COM3D2.MotionTimelineEditor
             if (layout.scrollable)
             {
                 var maxOffset = count - layout.visibleCount;
+
+                // ヘッダー上のホイールで左右にスクロールする。
+                // ヘッダーには縦スクロールする物が無いので上下の回転をそのまま左右へ割り当てる
+                var wheelRect = new Rect(x, 0f, availableWidth, DockableWindowBase.HEADER_HEIGHT);
+                if (e.type == EventType.ScrollWheel && wheelRect.Contains(e.mousePosition))
+                {
+                    scrollOffset = Mathf.Clamp(
+                        layout.firstVisible + (e.delta.y > 0f ? 1 : -1), 0, maxOffset);
+                    // ゲーム側へホイールを流さない
+                    e.Use();
+                }
+
                 if (DrawScrollButton(x, y, "<", layout.firstVisible > 0))
                 {
                     scrollOffset = layout.firstVisible - 1;
@@ -147,18 +161,30 @@ namespace COM3D2.MotionTimelineEditor
                 }
             }
 
-            var tabX = x + layout.tabsOriginX;
-            var last = layout.firstVisible + layout.visibleCount - 1;
+            // タブ列はクリップ領域の中へ描く。領域からはみ出す末尾のタブは
+            // 途中で切れたまま見せて、まだ続きがあることを示す。
+            // グループ内はローカル座標になるので、以降の座標は領域左上が原点
+            var tabsAreaRect = new Rect(
+                x + layout.tabsOriginX, y, layout.tabsAreaWidth, TAB_HEIGHT);
+            GUI.BeginGroup(tabsAreaRect);
+
+            var tabX = 0f;
+            // 見切れるぶんを 1 枚多く描く (最後まで来ていれば存在しないので Min で止める)
+            var last = Mathf.Min(count - 1, layout.firstVisible + layout.visibleCount);
             for (var i = layout.firstVisible; i <= last; i++)
             {
-                var tabRect = new Rect(tabX, y, layout.tabWidth, TAB_HEIGHT);
+                var tabRect = new Rect(tabX, y - tabsAreaRect.y, layout.tabWidth, TAB_HEIGHT);
                 var isActive = i == activeIndex;
 
-                if (e.type == EventType.MouseDown && e.button == 0 && tabRect.Contains(e.mousePosition))
+                // 押下判定はクリップ領域内に限る (見切れたタブの領域外は < > ボタンの持ち場)
+                if (e.type == EventType.MouseDown && e.button == 0 &&
+                    tabRect.Contains(e.mousePosition) &&
+                    e.mousePosition.x <= layout.tabsAreaWidth)
                 {
                     if (onTabMouseDown != null)
                     {
-                        onTabMouseDown(i, e.mousePosition);
+                        // grabOffset はウィンドウローカルの契約なのでグループ原点を足して戻す
+                        onTabMouseDown(i, e.mousePosition + tabsAreaRect.position);
                     }
                     // タブ押下でウィンドウ全体のドラッグが始まらないよう消費する
                     e.Use();
@@ -190,6 +216,8 @@ namespace COM3D2.MotionTimelineEditor
 
                 tabX += layout.tabWidth + TAB_MARGIN;
             }
+
+            GUI.EndGroup();
         }
 
         /// <summary>
