@@ -46,6 +46,10 @@ namespace COM3D2.MotionTimelineEditor
         // 右クリックメニュー専用の後発 API なので _activateTab とは別に検出する
         private static Action<object, int> _activateTabIndex;
 
+        // タブ列のスクロール位置の共有 (ホストが旧バージョンだと存在しない)。ペアで一括検出する
+        private static Func<object, float, float> _getTabScrollX;
+        private static Action<object, float> _setTabScrollX;
+
         // タブバー描画系 (ホストが旧バージョンだと存在しない)。ペアで一括検出する
         private static Action<object, Action<string[], int>> _enableTabBar;
         private static Action<object, int, float, float> _notifyTabMouseDown;
@@ -187,6 +191,18 @@ namespace COM3D2.MotionTimelineEditor
                     _activateTabIndex = (Action<object, int>)Delegate.CreateDelegate(
                         typeof(Action<object, int>), activateTabIndex);
                 }
+
+                // スクロール位置の共有も後発 API のため任意。
+                // 欠けるホストではゲストが自前の値を使う (タブ切替で位置が飛ぶだけで実害はない)
+                var getTabScrollX = type.GetMethod("GetTabScrollX", BindingFlags.Public | BindingFlags.Static);
+                var setTabScrollX = type.GetMethod("SetTabScrollX", BindingFlags.Public | BindingFlags.Static);
+                if (getTabScrollX != null && setTabScrollX != null)
+                {
+                    _getTabScrollX = (Func<object, float, float>)Delegate.CreateDelegate(
+                        typeof(Func<object, float, float>), getTabScrollX);
+                    _setTabScrollX = (Action<object, float>)Delegate.CreateDelegate(
+                        typeof(Action<object, float>), setTabScrollX);
+                }
             }
             catch (Exception e)
             {
@@ -206,6 +222,8 @@ namespace COM3D2.MotionTimelineEditor
                 _notifyTabMouseDown = null;
                 _activateTab = null;
                 _activateTabIndex = null;
+                _getTabScrollX = null;
+                _setTabScrollX = null;
             }
         }
 
@@ -349,6 +367,30 @@ namespace COM3D2.MotionTimelineEditor
             if (handle != null && isActivateTabAvailable)
             {
                 _activateTab(handle);
+            }
+        }
+
+        /// <summary>
+        /// タブ列のスクロール位置 (px) をホストから読む。
+        /// 位置はグループの状態なのでホストが持つ。未対応ホストでは fallback をそのまま返す
+        /// </summary>
+        public static float GetTabScrollX(object handle, float fallback)
+        {
+            Initialize();
+            if (handle == null || _getTabScrollX == null)
+            {
+                return fallback;
+            }
+            return _getTabScrollX(handle, fallback);
+        }
+
+        /// <summary>操作した結果のスクロール位置 (px) をホストへ書き戻す</summary>
+        public static void SetTabScrollX(object handle, float scrollX)
+        {
+            Initialize();
+            if (handle != null && _setTabScrollX != null)
+            {
+                _setTabScrollX(handle, scrollX);
             }
         }
 

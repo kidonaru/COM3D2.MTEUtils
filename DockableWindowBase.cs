@@ -116,7 +116,10 @@ namespace COM3D2.MotionTimelineEditor
         /// <summary>ホストから push されたタブバー状態。null はグループ非加入</summary>
         private string[] _tabTitles;
         private int _tabActiveIndex = -1;
-        /// <summary>タブ列のスクロール位置 (px)。クランプ結果を TabBarDrawer が書き戻す</summary>
+        /// <summary>
+        /// タブ列のスクロール位置 (px)。本来はグループの状態なのでホストが持つが、
+        /// 共有 API を持たない旧ホスト向けのフォールバックとして自前でも覚えておく
+        /// </summary>
         private float _tabScrollX;
 
         /// <summary>ドッキング中に非アクティブタブとして畳まれていないか (従属ポップアップの追従判定用)</summary>
@@ -244,8 +247,8 @@ namespace COM3D2.MotionTimelineEditor
                 }
                 else if (activeChanged)
                 {
-                    // アクティブになったタブが見切れていたら見える位置まで寄せる
-                    // (収まっているならスクロール位置は動かさない)
+                    // 見切れたタブへ寄せる処理は本来ホストが行う。
+                    // 共有 API を持たない旧ホストでも効くよう自前の値にも反映しておく
                     _tabScrollX = TabBarLayout.ScrollToShow(
                         titles.Length, TabBarLayout.CalcAvailableWidth(_windowRect.width),
                         _tabScrollX, activeIndex);
@@ -338,11 +341,16 @@ namespace COM3D2.MotionTimelineEditor
             // 利用可能幅の算出は TabBarLayout へ集約している
             var available = TabBarLayout.CalcAvailableWidth(_windowRect.width);
 
+            // スクロール位置はグループの状態なのでホストの値を優先する
+            // (窓ごとに持つとタブ切替のたびに別の窓が覚えていた位置へ飛ぶ)
+            var scrollX = DockingClient.GetTabScrollX(_dockHandle, _tabScrollX);
             TabBarDrawer.Draw(
                 windowId, _tabTitles, _tabActiveIndex,
                 FRAME, (HEADER_HEIGHT - TabBarDrawer.TAB_HEIGHT) * 0.5f, HEADER_HEIGHT, available,
-                ref _tabScrollX,
+                ref scrollX,
                 (index, pos) => DockingClient.NotifyTabMouseDown(_dockHandle, index, pos.x, pos.y));
+            _tabScrollX = scrollX;
+            DockingClient.SetTabScrollX(_dockHandle, scrollX);
         }
 
         /// <summary>
