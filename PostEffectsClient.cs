@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using PEData = COM3D2.MotionTimelineEditor.PostEffects;
 
@@ -64,8 +65,9 @@ namespace COM3D2.MotionTimelineEditor
         private static readonly object[] _args1 = new object[1];
         private static readonly object[] _args2 = new object[2];
 
-        // 毎フレーム走るパスなので、例外が出たときだけ 1 回ログして以後は黙らせる
-        private static bool _errorLogged;
+        // 毎フレーム走るパスなので、例外はメンバごとに初回だけログして以後は黙らせる。
+        // 単一フラグで全メンバを止めると、別のメンバの恒常的な失敗を見逃す
+        private static readonly HashSet<string> _errorLoggedMembers = new HashSet<string>();
 
         /// <summary>PostEffects.Plugin と接続できているか。未ロードの間は false を返し続ける</summary>
         public static bool isAvailable
@@ -194,11 +196,10 @@ namespace COM3D2.MotionTimelineEditor
 
         private static void LogHostError(string member, Exception e)
         {
-            if (_errorLogged)
+            if (!_errorLoggedMembers.Add(member))
             {
                 return;
             }
-            _errorLogged = true;
             MTEUtils.LogWarning(
                 "PostEffectsClient: {0} の呼び出しで例外が発生しました (以後この警告は出しません): {1}",
                 member, e.Message);
