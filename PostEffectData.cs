@@ -99,4 +99,69 @@ namespace COM3D2.MotionTimelineEditor.PostEffects
         // 準備完了メイド一覧の中のインデックス
         public int maidIndex = 0;
     }
+
+    /// <summary>ポストエフェクト DTO のキーフレーム間補間。enabled 等の非連続値は start 側を採る</summary>
+    public static class PostEffectDataLerp
+    {
+        public static ParaffinData Lerp(ParaffinData a, ParaffinData b, float t)
+        {
+            return new ParaffinData
+            {
+                enabled = a.enabled,
+                color1 = Color.Lerp(a.color1, b.color1, t),
+                color2 = Color.Lerp(a.color2, b.color2, t),
+                centerPosition = Vector2.Lerp(a.centerPosition, b.centerPosition, t),
+                radiusFar = Mathf.Lerp(a.radiusFar, b.radiusFar, t),
+                radiusNear = Mathf.Lerp(a.radiusNear, b.radiusNear, t),
+                radiusScale = Vector2.Lerp(a.radiusScale, b.radiusScale, t),
+                maskMode = a.maskMode,
+                useNormal = Mathf.Lerp(a.useNormal, b.useNormal, t),
+                useAdd = Mathf.Lerp(a.useAdd, b.useAdd, t),
+                useMultiply = Mathf.Lerp(a.useMultiply, b.useMultiply, t),
+                useOverlay = Mathf.Lerp(a.useOverlay, b.useOverlay, t),
+                useSubstruct = Mathf.Lerp(a.useSubstruct, b.useSubstruct, t),
+            };
+        }
+
+        public static DistanceFogData Lerp(DistanceFogData a, DistanceFogData b, float t)
+        {
+            return new DistanceFogData
+            {
+                enabled = a.enabled,
+                color1 = Color.Lerp(a.color1, b.color1, t),
+                color2 = Color.Lerp(a.color2, b.color2, t),
+                fogStart = Mathf.Lerp(a.fogStart, b.fogStart, t),
+                fogEnd = Mathf.Lerp(a.fogEnd, b.fogEnd, t),
+                fogExp = Mathf.Lerp(a.fogExp, b.fogExp, t),
+                useNormal = Mathf.Lerp(a.useNormal, b.useNormal, t),
+                useAdd = Mathf.Lerp(a.useAdd, b.useAdd, t),
+                useMultiply = Mathf.Lerp(a.useMultiply, b.useMultiply, t),
+                useOverlay = Mathf.Lerp(a.useOverlay, b.useOverlay, t),
+                useSubstruct = Mathf.Lerp(a.useSubstruct, b.useSubstruct, t),
+            };
+        }
+
+        public static RimlightData Lerp(RimlightData a, RimlightData b, float t)
+        {
+            return new RimlightData
+            {
+                enabled = a.enabled,
+                color1 = Color.Lerp(a.color1, b.color1, t),
+                color2 = Color.Lerp(a.color2, b.color2, t),
+                rotation = Vector3.Lerp(a.rotation, b.rotation, t),
+                lightArea = Mathf.Lerp(a.lightArea, b.lightArea, t),
+                fadeRange = Mathf.Lerp(a.fadeRange, b.fadeRange, t),
+                fadeExp = Mathf.Lerp(a.fadeExp, b.fadeExp, t),
+                useNormal = Mathf.Lerp(a.useNormal, b.useNormal, t),
+                useAdd = Mathf.Lerp(a.useAdd, b.useAdd, t),
+                useMultiply = Mathf.Lerp(a.useMultiply, b.useMultiply, t),
+                useOverlay = Mathf.Lerp(a.useOverlay, b.useOverlay, t),
+                useSubstruct = Mathf.Lerp(a.useSubstruct, b.useSubstruct, t),
+                isWorldSpace = a.isWorldSpace,
+                excludeFace = a.excludeFace,
+                applyHair = a.applyHair,
+                maskMode = a.maskMode,
+            };
+        }
+    }
 }
