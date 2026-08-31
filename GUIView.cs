@@ -873,15 +873,11 @@ namespace COM3D2.MotionTimelineEditor
         /// </summary>
         private void RegisterTooltip(Rect drawRect, string tooltip)
         {
-            if (tooltip == null || Event.current.type != EventType.Repaint)
+            if (tooltip == null || IsOutOfScrollView(drawRect))
             {
                 return;
             }
-            if (IsOutOfScrollView(drawRect) || !drawRect.Contains(Event.current.mousePosition))
-            {
-                return;
-            }
-            TooltipDrawer.Register(drawRect, tooltip);
+            TooltipDrawer.RegisterIfHovered(drawRect, tooltip);
         }
 
         public bool DrawButton(
@@ -1477,7 +1473,7 @@ namespace COM3D2.MotionTimelineEditor
                     {
                         DrawToggle(option.linkIcon, option.linked,
                             Vector3ResetButtonWidth, height, option.onLinkChanged,
-                            Vector3LinkIconOffset);
+                            Vector3LinkIconOffset, "連動 (3 軸を同じ比率で変更)");
                     }
                     else
                     {

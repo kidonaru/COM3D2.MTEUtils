@@ -50,6 +50,18 @@ namespace COM3D2.MotionTimelineEditor
             _registeredFrame = Time.frameCount;
         }
 
+        /// <summary>
+        /// Repaint 中にカーソルが rect 上にあれば登録する。
+        /// GUIView を通さず GUI.Button を直接描く箇所 (ウィンドウヘッダー等) から使う
+        /// </summary>
+        public static void RegisterIfHovered(Rect localRect, string text)
+        {
+            if (Event.current.type == EventType.Repaint && localRect.Contains(Event.current.mousePosition))
+            {
+                Register(localRect, text);
+            }
+        }
+
         /// <summary>全ウィンドウの描画後に呼ぶ</summary>
         public static void DrawWindow()
         {

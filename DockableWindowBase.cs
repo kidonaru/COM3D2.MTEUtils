@@ -373,12 +373,19 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
+        /// <summary>ロックボタンのツールチップ。内部窓・GameView とも同じ文言を使う</summary>
+        public static string GetLockTooltip(bool isLocked)
+        {
+            return isLocked ? "ロック解除" : "ロック (移動・リサイズを禁止)";
+        }
+
         /// <summary>
         /// ヘッダー右のボタン列を描く。閉じるボタンが押されたら false を返す。
         /// 構成・見た目は内部窓 (EditorSubWindow.DrawHeaderButtons) と揃える
         /// </summary>
         private bool DrawHeaderButtons(Rect closeRect)
         {
+            TooltipDrawer.RegisterIfHovered(closeRect, "閉じる");
             if (GUI.Button(closeRect, "x"))
             {
                 Close();
@@ -394,6 +401,7 @@ namespace COM3D2.MotionTimelineEditor
             var oldColor = GUI.color;
             // ロック中はアクセントカラーで塗って状態を示す
             GUI.color = _isLocked ? LOCK_ACCENT_COLOR : Color.white;
+            TooltipDrawer.RegisterIfHovered(lockRect, GetLockTooltip(_isLocked));
             if (GUI.Button(lockRect, _isLocked ? "◆" : "◇"))
             {
                 ToggleLock();
