@@ -854,15 +854,34 @@ namespace COM3D2.MotionTimelineEditor
             float height,
             float offsetSize = 0f,
             bool enabled = true,
-            GUIStyle style = null)
+            GUIStyle style = null,
+            string tooltip = null)
         {
             var drawRect = GetDrawRect(width, height);
             BeginEnabled(enabled);
             bool result = GUI.Button(drawRect, "", style ?? gsButton);
             DrawTileThumb(texture, offsetSize * 0.5f, offsetSize * 0.5f, drawRect.width - offsetSize, drawRect.height - offsetSize);
             EndEnabled();
+            RegisterTooltip(drawRect, tooltip);
             NextElement(drawRect);
             return result;
+        }
+
+        /// <summary>
+        /// カーソルがコントロール上にあれば TooltipDrawer へ登録する。
+        /// 無効化中のボタンでも登録する (何のボタンかは伝えたい)
+        /// </summary>
+        private void RegisterTooltip(Rect drawRect, string tooltip)
+        {
+            if (tooltip == null || Event.current.type != EventType.Repaint)
+            {
+                return;
+            }
+            if (IsOutOfScrollView(drawRect) || !drawRect.Contains(Event.current.mousePosition))
+            {
+                return;
+            }
+            TooltipDrawer.Register(drawRect, tooltip);
         }
 
         public bool DrawButton(
@@ -1045,7 +1064,8 @@ namespace COM3D2.MotionTimelineEditor
             float width,
             float height,
             Action<bool> onChanged,
-            float offsetSize = 0f)
+            float offsetSize = 0f,
+            string tooltip = null)
         {
             var drawRect = GetDrawRect(width, height);
             BeginColor(value ? option.accentColor : Color.white);
@@ -1053,6 +1073,7 @@ namespace COM3D2.MotionTimelineEditor
             DrawTileThumb(icon, offsetSize * 0.5f, offsetSize * 0.5f,
                 drawRect.width - offsetSize, drawRect.height - offsetSize);
             EndColor();
+            RegisterTooltip(drawRect, tooltip);
             NextElement(drawRect);
 
             if (newValue != value)

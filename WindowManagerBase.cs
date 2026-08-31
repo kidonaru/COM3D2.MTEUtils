@@ -161,6 +161,9 @@ namespace COM3D2.MotionTimelineEditor
             {
                 window.OnGUI();
             }
+
+            // 全ウィンドウより手前に出すため最後に描く
+            TooltipDrawer.DrawWindow();
         }
 
         public virtual void OnLoad()

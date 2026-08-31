@@ -344,7 +344,7 @@ namespace COM3D2.MotionTimelineEditor
                 }
 
                 // スライダーの表色系（RGB/HSV）を切り替える。現在の表色系はスライダーのラベルで判る
-                if (view.DrawTextureButton(GUIView.option.changeIcon, 20, 20, 0))
+                if (view.DrawTextureButton(GUIView.option.changeIcon, 20, 20, 0, tooltip: "RGB/HSV 切替"))
                 {
                     GUIView.option.useHSVColor = !GUIView.option.useHSVColor;
                 }

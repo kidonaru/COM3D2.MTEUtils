@@ -75,7 +75,8 @@ namespace COM3D2.MotionTimelineEditor
             if (option.globalIcon != null)
             {
                 view.DrawToggle(option.globalIcon, !useLocalSpace, height, height,
-                    on => option.setUseLocalSpace(!on), SpaceIconOffset);
+                    on => option.setUseLocalSpace(!on), SpaceIconOffset,
+                    useLocalSpace ? "座標系: Local" : "座標系: Global");
             }
             else if (view.DrawButton(useLocalSpace ? "Local" : "Global", SpaceButtonWidth, height))
             {
