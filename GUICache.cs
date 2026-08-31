@@ -60,7 +60,10 @@ namespace COM3D2.MotionTimelineEditor
 
         public void UpdateValue(float value, bool updateText)
         {
-            if (value == _value)
+            // NaN (複数選択で値が混在) 同士は「変化なし」とみなす。
+            // NaN == NaN は常に false なので、これが無いと毎フレーム text = "" へ
+            // 戻され、混在中の欄に負数や小数を打ち込めなくなる
+            if (value == _value || (float.IsNaN(value) && float.IsNaN(_value)))
             {
                 return;
             }
