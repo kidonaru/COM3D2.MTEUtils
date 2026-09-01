@@ -984,16 +984,33 @@ namespace COM3D2.MotionTimelineEditor
             Vector2 pos,
             Action<Vector2> onStart)
         {
+            if (InvokeActionOnDragStart(drawRect, info, pos))
+            {
+                onStart?.Invoke(info.pos);
+            }
+        }
+
+        /// <summary>
+        /// ドラッグ開始を判定し、開始したら true を返す。
+        /// ラムダを渡す版と違いクロージャを生成しないため、大量に呼ぶループ内ではこちらを使う
+        /// </summary>
+        public bool InvokeActionOnDragStart(
+            Rect drawRect,
+            DragInfo info,
+            Vector2 pos)
+        {
             if (Event.current.type == EventType.MouseDown &&
-                drawRect.Contains(Event.current.mousePosition) && 
+                drawRect.Contains(Event.current.mousePosition) &&
                 Event.current.button == 0)
             {
                 info.isDragging = true;
                 info.lastMousePos = MTEUtils.mousePosition;
                 info.startPos = pos;
                 info.pos = pos;
-                onStart?.Invoke(info.pos);
+                return true;
             }
+
+            return false;
         }
 
         public void InvokeActionOnDragging(
