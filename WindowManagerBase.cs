@@ -182,6 +182,10 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
+        public virtual void OnPluginEnable()
+        {
+        }
+
         public virtual void OnPluginDisable()
         {
             OnBeforeCloseWindows();

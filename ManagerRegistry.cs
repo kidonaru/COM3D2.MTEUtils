@@ -11,6 +11,7 @@ namespace COM3D2.MotionTimelineEditor
         void Update();
         void LateUpdate();
         void OnLoad();
+        void OnPluginEnable();
         void OnPluginDisable();
         void OnChangedSceneLevel(Scene scene, LoadSceneMode sceneMode);
     }
@@ -75,6 +76,21 @@ namespace COM3D2.MotionTimelineEditor
                 try
                 {
                     manager.OnLoad();
+                }
+                catch (Exception e)
+                {
+                    MTEUtils.LogException(e);
+                }
+            }
+        }
+
+        public void OnPluginEnable()
+        {
+            foreach (var manager in _managers)
+            {
+                try
+                {
+                    manager.OnPluginEnable();
                 }
                 catch (Exception e)
                 {
