@@ -283,6 +283,36 @@ namespace COM3D2.MotionTimelineEditor
                 : (Func<int, object>)Delegate.CreateDelegate(typeof(Func<int, object>), method);
         }
 
+        /// <summary>
+        /// 要素数 3 種をまとめて取得する。ホスト呼び出しが失敗したときは false を返す。
+        /// 個別の getter は失敗時も 0 を返すため「ホストが返した 0」と区別できない。
+        /// 取得値をタイムラインへ書き戻す用途では、この API で失敗を弾くこと
+        /// </summary>
+        public static bool TryGetCounts(out int paraffin, out int distanceFog, out int rimlight)
+        {
+            paraffin = 0;
+            distanceFog = 0;
+            rimlight = 0;
+
+            if (!isAvailable)
+            {
+                return false;
+            }
+
+            try
+            {
+                paraffin = _getParaffinCount();
+                distanceFog = _getDistanceFogCount();
+                rimlight = _getRimlightCount();
+                return true;
+            }
+            catch (Exception e)
+            {
+                LogHostError("TryGetCounts", e);
+                return false;
+            }
+        }
+
         public static int maxParaffinCount
         {
             get
