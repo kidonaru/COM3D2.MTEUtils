@@ -1585,6 +1585,100 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
+
+        public struct Vector2RowOption
+        {
+            public string label;
+            public float labelWidth;
+            /// <summary>ラベルのスタイル。null なら既定</summary>
+            public GUIStyle labelStyle;
+            /// <summary>行の高さ。0 なら 20</summary>
+            public float height;
+            /// <summary>ドラッグラベルの 1px あたりの増減量</summary>
+            public float dragSensitivity;
+            /// <summary>数値入力の表示形式。既定 (Float) は小数 3 桁 (F3) として扱う</summary>
+            public FloatFieldType fieldType;
+            public Vector2 value;
+            public Action<Vector2> onChanged;
+            /// <summary>null ならリセットボタンを出さない</summary>
+            public Action onReset;
+        }
+
+        private static readonly string[] Vector2AxisNames = { "X", "Y" };
+
+        /// <summary>
+        /// ラベル + XY (ドラッグラベル + 数値入力) + リセットボタンの 1 行。
+        /// 数値入力の幅は行の残り幅を 2 軸で等分して算出し、ウィンドウサイズに追従する
+        /// (DrawVector3Row の 2 軸版)
+        /// </summary>
+        public void DrawVector2Row(Vector2RowOption option)
+        {
+            var height = option.height > 0f ? option.height : 20f;
+            var value = option.value;
+            var hasReset = option.onReset != null;
+            var fieldType = option.fieldType == FloatFieldType.Float
+                ? FloatFieldType.F3 : option.fieldType;
+
+            // 残り幅の算出は DrawVector3Row と同じ式 (要素数だけ 3 → 2 に置き換える)
+            var available = viewRect.width - padding.x * 2;
+            available -= option.labelWidth + margin
+                + (Vector3DragLabelWidth + margin) * 2
+                + margin * 2;
+            if (hasReset)
+            {
+                available -= Vector3ResetButtonWidth + margin;
+            }
+            var fieldWidth = Mathf.Max(available / 2f, Vector3FieldMinWidth);
+
+            BeginHorizontal();
+            {
+                DrawLabel(option.label, option.labelWidth, height, style: option.labelStyle);
+
+                for (var i = 0; i < 2; i++)
+                {
+                    var index = i;
+
+                    DrawDragLabel(Vector2AxisNames[index], Vector3DragLabelWidth, height,
+                        option.dragSensitivity,
+                        delta =>
+                        {
+                            value[index] += delta;
+                            if (option.onChanged != null)
+                            {
+                                option.onChanged(value);
+                            }
+                        });
+
+                    // ドラッグで変わった値を表示へ反映するため、キャッシュを自前で更新する
+                    var fieldCache = GetFieldCache(option.label + index, fieldType);
+                    fieldCache.UpdateValue(value[index]);
+
+                    DrawFloatField(new FloatFieldOption
+                    {
+                        value = value[index],
+                        width = fieldWidth,
+                        height = height,
+                        fieldCache = fieldCache,
+                        onChanged = newValue =>
+                        {
+                            value[index] = newValue;
+                            if (option.onChanged != null)
+                            {
+                                option.onChanged(value);
+                            }
+                        },
+                    });
+                }
+
+                if (hasReset &&
+                    DrawButton("R", Vector3ResetButtonWidth, height))
+                {
+                    option.onReset();
+                }
+            }
+            EndLayout();
+        }
+
         public struct IntFieldOption
         {
             public string label;
