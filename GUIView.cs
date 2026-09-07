@@ -922,7 +922,31 @@ namespace COM3D2.MotionTimelineEditor
             var drawRect = GetDrawRect(width, height);
             var isPressed = GUI.RepeatButton(drawRect, text, gsButton);
             this.NextElement(drawRect);
+            return UpdateRepeatState(isPressed);
+        }
 
+        /// <summary>アイコン表示のリピートボタン。押し続けると一定間隔で true を返す</summary>
+        public bool DrawTextureRepeatButton(
+            Texture2D texture,
+            float width,
+            float height,
+            float offsetSize = 0f,
+            string tooltip = null)
+        {
+            var drawRect = GetDrawRect(width, height);
+            var isPressed = GUI.RepeatButton(drawRect, "", gsButton);
+            DrawTileThumb(texture, offsetSize * 0.5f, offsetSize * 0.5f, drawRect.width - offsetSize, drawRect.height - offsetSize);
+            RegisterTooltip(drawRect, tooltip);
+            this.NextElement(drawRect);
+            return UpdateRepeatState(isPressed);
+        }
+
+        /// <summary>
+        /// リピートボタンの押下状態から「今回発火するか」を決める。
+        /// 状態はビュー単位で 1 つを共有するが、IMGUI では同一フレームに押下されるボタンは 1 つなので足りる
+        /// </summary>
+        private bool UpdateRepeatState(bool isPressed)
+        {
             bool result = false;
             if (isPressed)
             {
