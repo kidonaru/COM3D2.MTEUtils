@@ -737,9 +737,22 @@ namespace COM3D2.MotionTimelineEditor
             this.layoutMaxPos = Vector2.zero;
         }
 
+        /// <summary>スクロールビュー末尾に足す既定の余白</summary>
+        private const float SCROLL_VIEW_TRAILING_SPACE = 20f;
+
         public void EndScrollView()
         {
-            scrollViewContentRect.height = currentPos.y + 20;
+            EndScrollView(SCROLL_VIEW_TRAILING_SPACE);
+        }
+
+        /// <summary>
+        /// 末尾余白を指定してスクロールビューを閉じる。
+        /// 横並びを折り返すレイアウトは EndLayout 時点で currentPos.y が最終行の下端に
+        /// なっているため、既定の余白だと空行が 1 つ余る。その場合は 0 を渡す
+        /// </summary>
+        public void EndScrollView(float trailingSpace)
+        {
+            scrollViewContentRect.height = currentPos.y + trailingSpace;
 
             GUI.EndScrollView();
             this.isScrollViewEnabled = false;
@@ -1070,7 +1083,10 @@ namespace COM3D2.MotionTimelineEditor
             return DrawToggle(null, value, width, height, true, onChanged);
         }
 
-        /// <summary>アイコン表示のトグルボタン。ON のときアクセント色でティントする</summary>
+        /// <summary>
+        /// アイコン表示のトグルボタン。ON のときアクセント色でティントする。
+        /// 録画系など目立たせたいトグルは onColor で ON 色を差し替えられる
+        /// </summary>
         public bool DrawToggle(
             Texture2D icon,
             bool value,
@@ -1078,10 +1094,11 @@ namespace COM3D2.MotionTimelineEditor
             float height,
             Action<bool> onChanged,
             float offsetSize = 0f,
-            string tooltip = null)
+            string tooltip = null,
+            Color? onColor = null)
         {
             var drawRect = GetDrawRect(width, height);
-            BeginColor(value ? option.accentColor : Color.white);
+            BeginColor(value ? (onColor ?? option.accentColor) : Color.white);
             bool newValue = GUI.Toggle(drawRect, value, "", gsButton);
             DrawTileThumb(icon, offsetSize * 0.5f, offsetSize * 0.5f,
                 drawRect.width - offsetSize, drawRect.height - offsetSize);
