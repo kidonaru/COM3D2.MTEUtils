@@ -100,6 +100,53 @@ namespace COM3D2.MotionTimelineEditor.PostEffects
         public int maidIndex = 0;
     }
 
+    /// <summary>
+    /// ブルーム (ゲーム内蔵 Bloom)。
+    /// 実体の enum 3 種はゲーム側アセンブリの型なのでここでは持てず、int で受け渡す
+    /// (値の対応は TimelineBridge が変換する)。
+    /// キャラ/背景の分離設定も実体ではネストクラスだが、ネストのままだと
+    /// ReflectionFieldCopier が別アセンブリの同名クラスを型不一致で捨てるため
+    /// separation 接頭辞を付けて平置きにしてある
+    /// </summary>
+    public class BloomData
+    {
+        public bool enabled = false;
+        // ゲーム標準のブルーム (CameraMain が毎フレーム有効化する) を強制無効化する
+        public bool gameEffectDisabled = false;
+        // Bloom.HDRBloomMode: 0=Auto, 1=On, 2=Off
+        public int hdr = 0;
+        // Bloom.BloomScreenBlendMode: 0=Screen, 1=Add
+        public int screenBlendMode = 0;
+        public bool highQuality = true;
+        public float intensity = 2.1375f;
+        public float threshold = 0.7f;
+        public Color thresholdColor = Color.white;
+        public int blurIterations = 3;
+        public float blurSpread = 3.48f;
+
+        // キャラと背景のブルーム分離
+        public bool separationEnabled = false;
+        public bool separationCharactersEnabled = true;
+        public bool separationBackgroundEnabled = true;
+        public float separationCharacterIntensity = 2.1375f;
+        public float separationCharacterThreshold = 0.7f;
+        public float separationCharacterRadius = 3.48f;
+
+        // レンズフレア
+        // Bloom.LensFlareStyle: 0=Ghosting, 1=Anamorphic, 2=Combined
+        public int lensFlareMode = 1;
+        public float lensFlareIntensity = 0f;
+        public float lensFlareSaturation = 0.75f;
+        public float lensFlareThreshold = 0.3f;
+        public float flareRotation = 0f;
+        public float hollyStretchWidth = 2.5f;
+        public int hollywoodFlareBlurIterations = 2;
+        public Color flareColorA = new Color(0.4f, 0.4f, 0.8f, 0.75f);
+        public Color flareColorB = new Color(0.4f, 0.8f, 0.8f, 0.75f);
+        public Color flareColorC = new Color(0.8f, 0.4f, 0.8f, 0.75f);
+        public Color flareColorD = new Color(0.8f, 0.4f, 0f, 0.75f);
+    }
+
     /// <summary>ポストエフェクト DTO のキーフレーム間補間。enabled 等の非連続値は start 側を採る</summary>
     public static class PostEffectDataLerp
     {
@@ -161,6 +208,46 @@ namespace COM3D2.MotionTimelineEditor.PostEffects
                 excludeFace = a.excludeFace,
                 applyHair = a.applyHair,
                 maskMode = a.maskMode,
+            };
+        }
+
+        public static BloomData Lerp(BloomData a, BloomData b, float t)
+        {
+            return new BloomData
+            {
+                enabled = a.enabled,
+                gameEffectDisabled = a.gameEffectDisabled,
+                hdr = a.hdr,
+                screenBlendMode = a.screenBlendMode,
+                highQuality = a.highQuality,
+                intensity = Mathf.Lerp(a.intensity, b.intensity, t),
+                threshold = Mathf.Lerp(a.threshold, b.threshold, t),
+                thresholdColor = Color.Lerp(a.thresholdColor, b.thresholdColor, t),
+                // 反復回数は途中の非整数値に意味が無いため補間しない
+                blurIterations = a.blurIterations,
+                blurSpread = Mathf.Lerp(a.blurSpread, b.blurSpread, t),
+
+                separationEnabled = a.separationEnabled,
+                separationCharactersEnabled = a.separationCharactersEnabled,
+                separationBackgroundEnabled = a.separationBackgroundEnabled,
+                separationCharacterIntensity = Mathf.Lerp(
+                    a.separationCharacterIntensity, b.separationCharacterIntensity, t),
+                separationCharacterThreshold = Mathf.Lerp(
+                    a.separationCharacterThreshold, b.separationCharacterThreshold, t),
+                separationCharacterRadius = Mathf.Lerp(
+                    a.separationCharacterRadius, b.separationCharacterRadius, t),
+
+                lensFlareMode = a.lensFlareMode,
+                lensFlareIntensity = Mathf.Lerp(a.lensFlareIntensity, b.lensFlareIntensity, t),
+                lensFlareSaturation = Mathf.Lerp(a.lensFlareSaturation, b.lensFlareSaturation, t),
+                lensFlareThreshold = Mathf.Lerp(a.lensFlareThreshold, b.lensFlareThreshold, t),
+                flareRotation = Mathf.Lerp(a.flareRotation, b.flareRotation, t),
+                hollyStretchWidth = Mathf.Lerp(a.hollyStretchWidth, b.hollyStretchWidth, t),
+                hollywoodFlareBlurIterations = a.hollywoodFlareBlurIterations,
+                flareColorA = Color.Lerp(a.flareColorA, b.flareColorA, t),
+                flareColorB = Color.Lerp(a.flareColorB, b.flareColorB, t),
+                flareColorC = Color.Lerp(a.flareColorC, b.flareColorC, t),
+                flareColorD = Color.Lerp(a.flareColorD, b.flareColorD, t),
             };
         }
     }

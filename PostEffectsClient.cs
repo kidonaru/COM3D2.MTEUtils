@@ -53,6 +53,8 @@ namespace COM3D2.MotionTimelineEditor
         private static MethodInfo _applyGTToneMap;
         private static Func<object> _getDepthOfField;
         private static MethodInfo _applyDepthOfField;
+        private static Func<object> _getBloom;
+        private static MethodInfo _applyBloom;
 
         // Apply 系へ渡すホスト側 DTO のインスタンスを使い回す (毎フレーム生成しない)
         private static object _paraffinArg;
@@ -60,6 +62,7 @@ namespace COM3D2.MotionTimelineEditor
         private static object _rimlightArg;
         private static object _gtToneMapArg;
         private static object _depthOfFieldArg;
+        private static object _bloomArg;
 
         // MethodInfo.Invoke 用の引数配列も使い回す
         private static readonly object[] _args1 = new object[1];
@@ -129,6 +132,8 @@ namespace COM3D2.MotionTimelineEditor
                 _applyGTToneMap = type.GetMethod("ApplyGTToneMap", BindingFlags.Public | BindingFlags.Static);
                 _getDepthOfField = CreateFuncObject(type, "GetDepthOfField");
                 _applyDepthOfField = type.GetMethod("ApplyDepthOfField", BindingFlags.Public | BindingFlags.Static);
+                _getBloom = CreateFuncObject(type, "GetBloom");
+                _applyBloom = type.GetMethod("ApplyBloom", BindingFlags.Public | BindingFlags.Static);
 
                 if (_getMaxParaffinCount == null || _getMaxDistanceFogCount == null ||
                     _getMaxRimlightCount == null ||
@@ -142,7 +147,8 @@ namespace COM3D2.MotionTimelineEditor
                     _getRimlightEnabled == null || _setRimlightEnabled == null ||
                     _getRimlightData == null || _applyRimlight == null ||
                     _getGTToneMap == null || _applyGTToneMap == null ||
-                    _getDepthOfField == null || _applyDepthOfField == null)
+                    _getDepthOfField == null || _applyDepthOfField == null ||
+                    _getBloom == null || _applyBloom == null)
                 {
                     MTEUtils.LogWarning(
                         "PostEffectsClient: TimelineBridge にシグネチャの一致するメソッドが見つかりませんでした");
@@ -156,12 +162,14 @@ namespace COM3D2.MotionTimelineEditor
                 _rimlightArg = Activator.CreateInstance(_applyRimlight.GetParameters()[1].ParameterType);
                 _gtToneMapArg = Activator.CreateInstance(_applyGTToneMap.GetParameters()[0].ParameterType);
                 _depthOfFieldArg = Activator.CreateInstance(_applyDepthOfField.GetParameters()[0].ParameterType);
+                _bloomArg = Activator.CreateInstance(_applyBloom.GetParameters()[0].ParameterType);
 
                 WarnUnmappedFields("パラフィン", typeof(PEData.ParaffinData), _paraffinArg);
                 WarnUnmappedFields("距離フォグ", typeof(PEData.DistanceFogData), _distanceFogArg);
                 WarnUnmappedFields("リムライト", typeof(PEData.RimlightData), _rimlightArg);
                 WarnUnmappedFields("GTトーンマップ", typeof(PEData.GTToneMapData), _gtToneMapArg);
                 WarnUnmappedFields("被写界深度", typeof(PEData.DepthOfFieldData), _depthOfFieldArg);
+                WarnUnmappedFields("ブルーム", typeof(PEData.BloomData), _bloomArg);
             }
             catch (Exception e)
             {
@@ -664,6 +672,42 @@ namespace COM3D2.MotionTimelineEditor
             catch (Exception e)
             {
                 LogHostError("ApplyDepthOfField", e);
+            }
+        }
+
+        public static PEData.BloomData GetBloom()
+        {
+            var dto = new PEData.BloomData();
+            if (!isAvailable)
+            {
+                return dto;
+            }
+            try
+            {
+                ReflectionFieldCopier.Copy(_getBloom(), dto);
+            }
+            catch (Exception e)
+            {
+                LogHostError("GetBloom", e);
+            }
+            return dto;
+        }
+
+        public static void ApplyBloom(PEData.BloomData data)
+        {
+            if (!isAvailable)
+            {
+                return;
+            }
+            try
+            {
+                ReflectionFieldCopier.Copy(data, _bloomArg);
+                _args1[0] = _bloomArg;
+                _applyBloom.Invoke(null, _args1);
+            }
+            catch (Exception e)
+            {
+                LogHostError("ApplyBloom", e);
             }
         }
     }
