@@ -145,6 +145,27 @@ namespace COM3D2.MotionTimelineEditor
             return tex;
         }
 
+        /// <summary>
+        /// 左端が透明、右端が不透明の白いテクスチャを作成する。
+        /// 色付きで重ね描きすると下地の色との線形ブレンドになる (2 色間のグラデーション表示用)
+        /// </summary>
+        public static Texture2D CreateHorizontalAlphaGradientTexture(int width)
+        {
+            var tex = new Texture2D(width, 1, TextureFormat.ARGB32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+
+            var pixels = new Color[width];
+            for (int x = 0; x < width; x++)
+            {
+                pixels[x] = new Color(1f, 1f, 1f, (float)x / (width - 1));
+            }
+
+            tex.SetPixels(pixels);
+            tex.Apply();
+            return tex;
+        }
+
         public static Texture2D CreateCircleTexture(
             int size,
             Color color)
