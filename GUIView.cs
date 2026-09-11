@@ -3012,24 +3012,57 @@ namespace COM3D2.MotionTimelineEditor
             editor.Sync(label, curve, curveColor, onChanged);
         }
 
+        /// <summary>
+        /// enum のタブの値と見出し。OnGUI は 1 フレームに複数回走るため、
+        /// 値の列挙と ToString をここで 1 度だけ済ませる
+        /// </summary>
+        private static class EnumTabs<T>
+        {
+            public static readonly T[] values = (T[]) Enum.GetValues(typeof(T));
+            public static readonly string[] labels = values.Select(v => v.ToString()).ToArray();
+        }
+
         public T DrawTabs<T>(
             T currentTab,
             float width,
             float height,
             float tabMargin = 0f)
         {
-            var tabTypes = Enum.GetValues(typeof(T));
+            var values = EnumTabs<T>.values;
+
+            var currentIndex = Array.IndexOf(values, currentTab);
+            var newIndex = DrawTabs(
+                EnumTabs<T>.labels, currentIndex, width, height, tabMargin);
+
+            return newIndex == currentIndex ? currentTab : values[newIndex];
+        }
+
+        /// <summary>
+        /// タブ列 (見出しを直接指定する版)。選択中のタブの添字を返す。
+        /// enum で表せない動的な一覧をタブにするために使う
+        /// </summary>
+        public int DrawTabs(
+            IList<string> labels,
+            int currentIndex,
+            float width,
+            float height,
+            float tabMargin = 0f)
+        {
+            if (labels.Count == 0)
+            {
+                return currentIndex;
+            }
 
             var maxWidth = viewRect.width - currentPos.x - padding.x;
-            var subViewWidth = Mathf.Min((width + tabMargin) * tabTypes.Length, maxWidth);
-            var rows = Mathf.CeilToInt((width + tabMargin) * tabTypes.Length / maxWidth);
+            var subViewWidth = Mathf.Min((width + tabMargin) * labels.Count, maxWidth);
+            var rows = Mathf.CeilToInt((width + tabMargin) * labels.Count / maxWidth);
             var subViewHeight = height * rows;
             var subViewRect = GetDrawRect(subViewWidth, subViewHeight);
 
             BeginSubView(subViewRect, LayoutDirection.Horizontal);
             {
                 subView.margin = tabMargin;
-                foreach (T tabType in tabTypes)
+                for (int i = 0; i < labels.Count; i++)
                 {
                     if (subView.currentPos.x + width > subView.viewRect.width)
                     {
@@ -3037,10 +3070,10 @@ namespace COM3D2.MotionTimelineEditor
                         subView.BeginLayout(LayoutDirection.Horizontal);
                     }
 
-                    var color = currentTab.Equals(tabType) ? option.accentColor : Color.white;
-                    if (subView.DrawButton(tabType.ToString(), width, height, true, color))
+                    var color = i == currentIndex ? option.accentColor : Color.white;
+                    if (subView.DrawButton(labels[i], width, height, true, color))
                     {
-                        currentTab = tabType;
+                        currentIndex = i;
                     }
                 }
             }
@@ -3048,7 +3081,22 @@ namespace COM3D2.MotionTimelineEditor
 
             AddSpace(5);
 
-            return currentTab;
+            return currentIndex;
+        }
+
+        /// <summary>
+        /// 横並び行の残り幅ぶんの空白を挿入し、以降の要素を右端へ寄せる。
+        /// contentWidth には右揃えする要素の幅とその要素間 margin の合計を渡す
+        /// </summary>
+        public void AddRightAlignSpace(float contentWidth, float height)
+        {
+            // viewRect はスクロールビュー中もコンテンツ幅を返す (GetDrawRect の auto-width と同じ式)。
+            // 空白自身の後ろにも margin が入るためそのぶんも差し引く
+            var space = viewRect.width - padding.x * 2 - currentPos.x - margin - contentWidth;
+            if (space > 0f)
+            {
+                AddSpace(space, height);
+            }
         }
 
         public void AddSpace(float width, float height)
