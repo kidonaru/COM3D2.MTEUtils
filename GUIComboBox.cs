@@ -92,7 +92,9 @@ namespace COM3D2.MotionTimelineEditor
 
         /// <summary>
         /// 描画したビューの値変更フック。ポップアップ側で選択が確定したとき (別ビュー) にも
-        /// 同じフックを通せるよう、DrawButton のたびに控える
+        /// 同じフックを通せるよう、DrawButton のたびに控える。
+        /// 最後に描いたビューのフックが残るため、1 つのインスタンスを
+        /// フック設定の違う複数箇所から描かないこと
         /// </summary>
         private Action _onBeforeSelected;
 
