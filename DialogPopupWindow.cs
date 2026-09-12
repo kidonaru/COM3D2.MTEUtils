@@ -13,11 +13,15 @@ namespace COM3D2.MotionTimelineEditor
     public class DialogPopupWindow : IGUIWindow
     {
         public static readonly int WINDOW_ID = 8903363;
+        private static readonly int OVERLAY_WINDOW_ID = 8903398;
 
         private static readonly int WINDOW_WIDTH = 360;
         private static readonly int BUTTON_WIDTH = 80;
         private static readonly int BUTTON_HEIGHT = 24;
         private static readonly int PADDING = 15;
+
+        /// <summary>ダイアログ表示中に背後を覆う黒フェードの色</summary>
+        private static readonly Color OVERLAY_COLOR = new Color(0f, 0f, 0f, 0.5f);
 
         /// <summary>表示中のメッセージ。null なら閉じている</summary>
         private string _message;
@@ -165,9 +169,26 @@ namespace COM3D2.MotionTimelineEditor
                 WINDOW_WIDTH,
                 windowHeight);
 
+            // 背後のウィンドウより手前に黒フェードを敷いてダイアログを目立たせる。
+            // 通常の GUI.DrawTexture は全ウィンドウの奥に描かれてしまうため、
+            // 全画面の GUI.Window として描いてから最前面へ出す。
+            // 入力のブロックは ModalWindow 側が担う。
+            // 前面化の順序（フェード → ダイアログ）を入れ替えるとフェードがダイアログを覆うので変えないこと
+            var screenRect = new Rect(0f, 0f, Screen.width, Screen.height);
+            GUI.Window(OVERLAY_WINDOW_ID, screenRect, DrawOverlay, "", GUIStyle.none);
+            GUI.BringWindowToFront(OVERLAY_WINDOW_ID);
+
             // ModalWindow で背後のウィンドウ操作をブロックする
             GUI.ModalWindow(WINDOW_ID, _windowRect, DrawDialog, "", GUIView.gsWin);
             GUI.BringWindowToFront(WINDOW_ID);
+        }
+
+        private void DrawOverlay(int id)
+        {
+            var defaultColor = GUI.color;
+            GUI.color = OVERLAY_COLOR;
+            GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), GUIView.texWhite);
+            GUI.color = defaultColor;
         }
 
         private void DrawDialog(int id)
