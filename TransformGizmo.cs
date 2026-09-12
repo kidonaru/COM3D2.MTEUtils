@@ -40,6 +40,11 @@ namespace COM3D2.MotionTimelineEditor
         public bool isDragging { get; private set; }
 
         private const float HitThreshold = 8f;
+        /// <summary>
+        /// 回転リングの掴み判定幅。リングは線 1 本で軸ハンドルより細く、
+        /// ボーン用の小さいギズモでは 8px だと狙いづらいため広めに取る
+        /// </summary>
+        private const float RotateHitThreshold = 16f;
         private const float GizmoScreenScale = 0.15f; // カメラ距離に対するギズモサイズ比
 
         // 見た目はゲーム本体の GizmoRender に合わせている。
@@ -447,7 +452,7 @@ namespace COM3D2.MotionTimelineEditor
             var bestAxis = -1;
             if (bestPlane < 0)
             {
-                var bestDistance = HitThreshold;
+                var bestDistance = tool == GizmoTool.Rotate ? RotateHitThreshold : HitThreshold;
                 for (var axis = 0; axis < 3; axis++)
                 {
                     float distance;
