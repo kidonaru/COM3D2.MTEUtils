@@ -2818,7 +2818,12 @@ namespace COM3D2.MotionTimelineEditor
 
                 subView.AddSpace(5);
 
-                newValue = subView.DrawSlider(newValue, option.min, option.max, sliderWidth, 20);
+                // NaN (複数選択で値が混在) を GUI.HorizontalSlider へ渡すとハンドル位置が
+                // 不定になるため、min の位置で描き、触られなければ NaN のまま (変更なし) に戻す
+                var isMixed = float.IsNaN(newValue);
+                var sliderValue = subView.DrawSlider(
+                    isMixed ? option.min : newValue, option.min, option.max, sliderWidth, 20);
+                newValue = isMixed && sliderValue == option.min ? float.NaN : sliderValue;
 
                 if (!option.hiddenResetButton)
                 {
