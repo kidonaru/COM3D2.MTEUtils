@@ -1,4 +1,4 @@
-﻿namespace COM3D2.MotionTimelineEditor
+namespace COM3D2.MotionTimelineEditor
 {
     using System;
     using System.Collections.Generic;
