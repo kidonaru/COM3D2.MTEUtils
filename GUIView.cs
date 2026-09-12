@@ -1373,6 +1373,8 @@ namespace COM3D2.MotionTimelineEditor
         {
             public string label;
             public float labelWidth;
+            /// <summary>ラベルドラッグ 1px あたりの増減量。0 以下ならラベルはドラッグ不可</summary>
+            public float dragSensitivity;
             public FloatFieldType fieldType;
             public float value;
             public float minValue;
@@ -1394,6 +1396,51 @@ namespace COM3D2.MotionTimelineEditor
             }
 
             var updated = false;
+
+            var hasDragLabel = option.dragSensitivity > 0f
+                && !string.IsNullOrEmpty(option.label)
+                && option.onChanged != null;
+            if (hasDragLabel)
+            {
+                // DrawDragLabel は内部で NextElement を呼ぶため、縦並びのビューから直接呼ぶと
+                // ラベルの直後で行が送られてしまう。必ず Horizontal な subView の中で描く
+                // (DrawSliderValue / DrawVector3Row と同じ流儀)
+                var dragLabelWidth = option.labelWidth > 0f ? option.labelWidth : this.labelWidth;
+                var value = option.value;
+
+                var rowRect = GetDrawRect(option.width, option.height);
+
+                BeginSubView(rowRect, LayoutDirection.Horizontal);
+                {
+                    subView.DrawDragLabel(
+                        option.label, dragLabelWidth, option.height, option.dragSensitivity, delta =>
+                    {
+                        // 混在 (NaN) はドラッグの起点が定まらないため変更しない
+                        if (float.IsNaN(value)) return;
+
+                        var newValue = ClampValue(value + delta, option.minValue, option.maxValue);
+                        if (newValue == value) return;
+
+                        value = newValue;
+                        // ドラッグで変わった値を同じフレームの入力欄へ出すためキャッシュを更新する
+                        fieldCache.UpdateValue(newValue);
+                        option.onChanged(newValue);
+                        updated = true;
+                    });
+
+                    // 残り幅にラベル無しの入力欄を描く (subView の margin は 0)
+                    var fieldOption = option;
+                    fieldOption.label = null;
+                    fieldOption.dragSensitivity = 0f;
+                    fieldOption.fieldCache = fieldCache;
+                    fieldOption.width = rowRect.width - dragLabelWidth;
+
+                    updated |= subView.DrawFloatField(fieldOption);
+                }
+                EndSubView();
+
+                return updated;
+            }
 
             Action<string> onChanged = null;
             if (option.onChanged != null)
@@ -1889,8 +1936,25 @@ namespace COM3D2.MotionTimelineEditor
             public Action onReset;
         }
 
-        /// <summary>int ドラッグの端数。ドラッグは同時に 1 つしか成立しないため単一で足りる</summary>
+        /// <summary>
+        /// int ドラッグの端数。IMGUI の hotControl は単一で、ドラッグは同時に 1 つしか成立しないため、
+        /// DrawDragIntField と DrawSliderValue (Int) が同じ端数を共有しても汚染し合わない
+        /// </summary>
         private static float _intDragResidual = 0f;
+
+        /// <summary>
+        /// ドラッグ差分を端数込みで積み、整数 1 以上になった分だけ step として取り出す。
+        /// 1px 未満の移動を切り捨てないための共通処理
+        /// </summary>
+        private static bool TryTakeIntDragStep(float delta, out int step)
+        {
+            _intDragResidual += delta;
+            step = (int)_intDragResidual;
+            if (step == 0) return false;
+
+            _intDragResidual -= step;
+            return true;
+        }
 
         /// <summary>
         /// 左右ドラッグで増減できるラベルと数値入力欄のセット (int)。
@@ -1906,11 +1970,8 @@ namespace COM3D2.MotionTimelineEditor
 
             DrawDragLabel(option.label, labelWidth, height, sensitivity, delta =>
             {
-                _intDragResidual += delta;
-                var step = (int)_intDragResidual;
-                if (step == 0) return;
-
-                _intDragResidual -= step;
+                int step;
+                if (!TryTakeIntDragStep(delta, out step)) return;
 
                 var newValue = (int)ClampValue(value + step, option.minValue, option.maxValue);
                 if (newValue == value) return;
@@ -2753,6 +2814,8 @@ namespace COM3D2.MotionTimelineEditor
         {
             public string label;
             public float labelWidth;
+            /// <summary>ラベルドラッグ 1px あたりの増減量。0 以下ならラベルはドラッグ不可</summary>
+            public float dragSensitivity;
             public float width;
             public FloatFieldType fieldType;
             public float min;
@@ -2788,7 +2851,31 @@ namespace COM3D2.MotionTimelineEditor
                 var label = fieldCache.label;
                 if (!string.IsNullOrEmpty(label))
                 {
-                    subView.DrawLabel(label, option.labelWidth, 20);
+                    if (option.dragSensitivity > 0f)
+                    {
+                        var isInt = option.fieldType == FloatFieldType.Int;
+                        subView.DrawDragLabel(label, option.labelWidth, 20, option.dragSensitivity, delta =>
+                        {
+                            // 混在 (NaN) はドラッグの起点が定まらないため変更しない
+                            if (float.IsNaN(newValue)) return;
+
+                            if (isInt)
+                            {
+                                int step;
+                                if (!TryTakeIntDragStep(delta, out step)) return;
+                                delta = step;
+                            }
+                            newValue = Mathf.Clamp(newValue + delta, option.min, option.max);
+                        },
+                        onDragStart: isInt ? (Action)(() => _intDragResidual = 0f) : null);
+
+                        // ドラッグで変わった値を同じフレームの入力欄へ出すためキャッシュを更新する
+                        fieldCache.UpdateValue(newValue);
+                    }
+                    else
+                    {
+                        subView.DrawLabel(label, option.labelWidth, 20);
+                    }
                     sliderWidth -= option.labelWidth;
                 }
 
