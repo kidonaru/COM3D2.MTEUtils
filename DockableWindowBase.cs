@@ -300,9 +300,6 @@ namespace COM3D2.MotionTimelineEditor
             {
                 AdjustPosition();
             }
-
-            // ウィンドウ上のホイール操作をゲーム側へ流さない
-            MTEUtils.ResetInputOnScroll(_windowRect);
         }
 
         private void DrawWindowInternal(int id)
@@ -313,6 +310,12 @@ namespace COM3D2.MotionTimelineEditor
             {
                 DrawTabBar();
             }
+
+            // ウィンドウ上のホイール操作をゲーム側へ流さない。
+            // GUI.Window のコールバックは OnGUI 終了後に遅延実行されるため、
+            // OnGUI 側 (GUI.Window 直後) で潰すとタブ列のホイールスクロールが
+            // 軸を読む前に 0 にされて効かなくなる。描画を終えたこの位置で潰す
+            MTEUtils.ResetInputOnScroll(_windowRect);
 
             // 閉じるボタン (ヘッダー右端)
             var closeRect = new Rect(
