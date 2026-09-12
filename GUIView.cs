@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -272,8 +272,21 @@ namespace COM3D2.MotionTimelineEditor
                 if (_parent != null)
                 {
                     SetEnabled(_parent.guiEnabled);
+                    onBeforeValueChanged = _parent.onBeforeValueChanged;
                 }
             }
+        }
+
+        /// <summary>
+        /// ユーザー操作で値が変わり、onChanged 系コールバックを呼ぶ直前に発火する。
+        /// 編集モードへの自動移行 (値を書く前に入る必要がある) のために使う。
+        /// サブビューは親のフックを引き継ぐ
+        /// </summary>
+        public Action onBeforeValueChanged;
+
+        public void NotifyBeforeValueChanged()
+        {
+            onBeforeValueChanged?.Invoke();
         }
 
         public Vector2 currentPos;
@@ -1091,6 +1104,7 @@ namespace COM3D2.MotionTimelineEditor
 
             if (newValue != value)
             {
+                NotifyBeforeValueChanged();
                 onChanged(newValue);
                 return true;
             }
@@ -1132,6 +1146,7 @@ namespace COM3D2.MotionTimelineEditor
 
             if (newValue != value)
             {
+                NotifyBeforeValueChanged();
                 onChanged(newValue);
                 return true;
             }
@@ -1267,6 +1282,7 @@ namespace COM3D2.MotionTimelineEditor
             var updated = false;
             if (newText != text)
             {
+                NotifyBeforeValueChanged();
                 onChanged(newText);
                 updated = true;
             }
@@ -1333,6 +1349,7 @@ namespace COM3D2.MotionTimelineEditor
 
                     if (subView.DrawButton("P", 20, 20))
                     {
+                        NotifyBeforeValueChanged();
                         option.onChanged(GUIUtility.systemCopyBuffer);
                         updated = true;
                     }
@@ -1424,6 +1441,7 @@ namespace COM3D2.MotionTimelineEditor
                         value = newValue;
                         // ドラッグで変わった値を同じフレームの入力欄へ出すためキャッシュを更新する
                         fieldCache.UpdateValue(newValue);
+                        NotifyBeforeValueChanged();
                         option.onChanged(newValue);
                         updated = true;
                     });
@@ -1457,6 +1475,7 @@ namespace COM3D2.MotionTimelineEditor
                             newValue = Mathf.Clamp(newValue, option.minValue, option.maxValue);
                         }
                         fieldCache.UpdateValue(newValue, false);
+                        NotifyBeforeValueChanged();
                         option.onChanged(newValue);
                         updated = true;
                     }
@@ -1655,13 +1674,16 @@ namespace COM3D2.MotionTimelineEditor
             return linked;
         }
 
-        private static void NotifyChanged(Vector3RowOption option, Vector3 value, int index)
+        // 値変更フック (NotifyBeforeValueChanged) を通すため static にしない
+        private void NotifyChanged(Vector3RowOption option, Vector3 value, int index)
         {
             if (option.linked && option.onLinkChanged != null)
             {
                 // option.value は編集前の値なので、そこからの比率で他軸へ伝播できる
                 value = LinkValue(option.value, value, index);
             }
+
+            NotifyBeforeValueChanged();
 
             if (option.onChangedAxis != null)
             {
@@ -1733,6 +1755,7 @@ namespace COM3D2.MotionTimelineEditor
                             value[index] += delta;
                             if (option.onChanged != null)
                             {
+                                NotifyBeforeValueChanged();
                                 option.onChanged(value);
                             }
                         });
@@ -1752,6 +1775,7 @@ namespace COM3D2.MotionTimelineEditor
                             value[index] = newValue;
                             if (option.onChanged != null)
                             {
+                                NotifyBeforeValueChanged();
                                 option.onChanged(value);
                             }
                         },
@@ -1807,6 +1831,7 @@ namespace COM3D2.MotionTimelineEditor
                             newValue = Mathf.Clamp(newValue, option.minValue, option.maxValue);
                         }
                         fieldCache.UpdateValue(newValue, false);
+                        NotifyBeforeValueChanged();
                         option.onChanged(newValue);
                         updated = true;
                     }
@@ -1893,6 +1918,7 @@ namespace COM3D2.MotionTimelineEditor
                 var newValue = ClampValue(value + delta, option.minValue, option.maxValue);
                 if (newValue == value) return;
 
+                NotifyBeforeValueChanged();
                 value = newValue;
                 option.onChanged?.Invoke(newValue);
                 updated = true;
@@ -1976,6 +2002,7 @@ namespace COM3D2.MotionTimelineEditor
                 var newValue = (int)ClampValue(value + step, option.minValue, option.maxValue);
                 if (newValue == value) return;
 
+                NotifyBeforeValueChanged();
                 value = newValue;
                 option.onChanged?.Invoke(newValue);
                 updated = true;
@@ -2798,11 +2825,13 @@ namespace COM3D2.MotionTimelineEditor
 
             if (!float.IsNaN(newValue) && newValue != value)
             {
+                NotifyBeforeValueChanged();
                 onChanged(newValue);
                 updated = true;
             }
             if (diffValue != 0f)
             {
+                NotifyBeforeValueChanged();
                 onDiffChanged(diffValue);
                 updated = true;
             }
@@ -2926,6 +2955,7 @@ namespace COM3D2.MotionTimelineEditor
 
             if (!float.IsNaN(newValue) && newValue != option.value)
             {
+                NotifyBeforeValueChanged();
                 option.onChanged(newValue);
                 updated = true;
             }
@@ -2997,6 +3027,14 @@ namespace COM3D2.MotionTimelineEditor
             var picker = ColorPickerWindow.instance;
             var isEditing = picker.IsEditing(label);
 
+            // ピッカーからの変更も同じフックを通す (値を書く前に編集モードへ入る)。
+            // Open / Sync の両方に渡し、生のコールバックがピッカーに残らないようにする
+            Action<Color> notifyingOnColorChanged = c =>
+            {
+                NotifyBeforeValueChanged();
+                onColorChanged(c);
+            };
+
             BeginLayout(LayoutDirection.Horizontal);
             {
                 if (label != null)
@@ -3032,7 +3070,7 @@ namespace COM3D2.MotionTimelineEditor
                             fieldCache.color,
                             resetColor,
                             fieldCache.hasAlpha,
-                            onColorChanged,
+                            notifyingOnColorChanged,
                             anchorRect);
                     }
                 }
@@ -3042,12 +3080,13 @@ namespace COM3D2.MotionTimelineEditor
             var updated = false;
             if (fieldCache.color != color)
             {
+                NotifyBeforeValueChanged();
                 onColorChanged(fieldCache.color);
                 updated = true;
             }
 
             // 編集ウィンドウへ最新の状態を渡す。渡されなくなったら向こう側で自動的に閉じる
-            picker.Sync(label, fieldCache.color, resetColor, fieldCache.hasAlpha, onColorChanged);
+            picker.Sync(label, fieldCache.color, resetColor, fieldCache.hasAlpha, notifyingOnColorChanged);
 
             return updated;
         }
@@ -3065,6 +3104,14 @@ namespace COM3D2.MotionTimelineEditor
             var editor = CurveEditorWindow.instance;
             var isEditing = editor.IsEditing(label);
 
+            // カーブ編集ウィンドウからの変更も同じフックを通す (値を書く前に編集モードへ入る)。
+            // Open / Sync の両方に渡し、生のコールバックがウィンドウ側に残らないようにする
+            Action notifyingOnChanged = () =>
+            {
+                NotifyBeforeValueChanged();
+                onChanged?.Invoke();
+            };
+
             BeginLayout(LayoutDirection.Horizontal);
             {
                 if (label != null)
@@ -3076,6 +3123,7 @@ namespace COM3D2.MotionTimelineEditor
 
                 if (DrawButton("R", 20, 20))
                 {
+                    NotifyBeforeValueChanged();
                     curve.CopyFrom(CurveData.Linear());
                     onChanged?.Invoke();
                 }
@@ -3094,14 +3142,14 @@ namespace COM3D2.MotionTimelineEditor
                         var screenPos = GUIUtility.GUIToScreenPoint(buttonRect.position);
                         var anchorRect = new Rect(screenPos.x, screenPos.y, buttonRect.width, buttonRect.height);
 
-                        editor.Open(label, curve, curveColor, onChanged, anchorRect);
+                        editor.Open(label, curve, curveColor, notifyingOnChanged, anchorRect);
                     }
                 }
             }
             EndLayout();
 
             // 編集ウィンドウへ最新の状態を渡す。渡されなくなったら向こう側で自動的に閉じる
-            editor.Sync(label, curve, curveColor, onChanged);
+            editor.Sync(label, curve, curveColor, notifyingOnChanged);
         }
 
         /// <summary>

@@ -1,4 +1,4 @@
-namespace COM3D2.MotionTimelineEditor
+﻿namespace COM3D2.MotionTimelineEditor
 {
     using System;
     using System.Collections.Generic;
@@ -90,8 +90,26 @@ namespace COM3D2.MotionTimelineEditor
             padding = Vector2.zero,
         };
 
+        /// <summary>
+        /// 描画したビューの値変更フック。ポップアップ側で選択が確定したとき (別ビュー) にも
+        /// 同じフックを通せるよう、DrawButton のたびに控える
+        /// </summary>
+        private Action _onBeforeSelected;
+
+        private void InvokeSelected()
+        {
+            if (this.onSelected == null)
+            {
+                return;
+            }
+            _onBeforeSelected?.Invoke();
+            this.onSelected(this.items[this.currentIndex], this.currentIndex);
+        }
+
         public override void DrawButton(string label, GUIView view)
         {
+            _onBeforeSelected = view.onBeforeValueChanged;
+
             var name = this.defaultName;
             if (name == null)
             {
@@ -128,10 +146,7 @@ namespace COM3D2.MotionTimelineEditor
                     if (_buttonSubView.DrawButton("<", 20, 20, items.Count > 0))
                     {
                         this.currentIndex = this.prevIndex;
-                        if (this.onSelected != null)
-                        {
-                            this.onSelected(this.items[this.currentIndex], this.currentIndex);
-                        }
+                        InvokeSelected();
                     }
                 }
 
@@ -152,10 +167,7 @@ namespace COM3D2.MotionTimelineEditor
                     if (_buttonSubView.DrawButton(">", 20, 20, items.Count > 0))
                     {
                         this.currentIndex = this.nextIndex;
-                        if (this.onSelected != null)
-                        {
-                            this.onSelected(this.items[this.currentIndex], this.currentIndex);
-                        }
+                        InvokeSelected();
                     }
                 }
             }
@@ -166,6 +178,8 @@ namespace COM3D2.MotionTimelineEditor
 
         public override void DrawTextureButton(GUIView view)
         {
+            _onBeforeSelected = view.onBeforeValueChanged;
+
             var texture = this.defaultTexture;
             if (texture == null)
             {
@@ -193,10 +207,7 @@ namespace COM3D2.MotionTimelineEditor
                     if (_buttonSubView.DrawButton("<", 20, 20, items.Count > 0))
                     {
                         this.currentIndex = this.prevIndex;
-                        if (this.onSelected != null)
-                        {
-                            this.onSelected(this.items[this.currentIndex], this.currentIndex);
-                        }
+                        InvokeSelected();
                     }
                 }
 
@@ -217,10 +228,7 @@ namespace COM3D2.MotionTimelineEditor
                     if (_buttonSubView.DrawButton(">", 20, 20, items.Count > 0))
                     {
                         this.currentIndex = this.nextIndex;
-                        if (this.onSelected != null)
-                        {
-                            this.onSelected(this.items[this.currentIndex], this.currentIndex);
-                        }
+                        InvokeSelected();
                     }
                 }
             }
@@ -254,10 +262,7 @@ namespace COM3D2.MotionTimelineEditor
             if (selectedIndex >= 0 && selectedIndex < this.items.Count)
             {
                 this.currentIndex = selectedIndex;
-                if (this.onSelected != null)
-                {
-                    this.onSelected(this.items[this.currentIndex], this.currentIndex);
-                }
+                InvokeSelected();
                 return true;
             }
             return false;
