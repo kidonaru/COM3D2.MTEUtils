@@ -15,6 +15,9 @@ namespace COM3D2.MotionTimelineEditor
         public Vector2 contentSize = new Vector2(110, 300);
         public bool showArrow = true;
 
+        /// <summary>前後送り矢印 1 個分のサイズ。矢印込みの幅を外側でレイアウトする際にも参照する</summary>
+        public const float ARROW_SIZE = 20f;
+
         public abstract int prevIndex { get; }
         public abstract int nextIndex { get; }
 
@@ -128,7 +131,7 @@ namespace COM3D2.MotionTimelineEditor
             }
             if (showArrow)
             {
-                subViewWidth += 40;
+                subViewWidth += ARROW_SIZE * 2;
             }
 
             var subViewRect = view.GetDrawRect(subViewWidth, buttonSize.y);
@@ -145,7 +148,7 @@ namespace COM3D2.MotionTimelineEditor
                 if (showArrow)
                 {
                     // 候補が空だと prevIndex / nextIndex が範囲外になるため押せなくする
-                    if (_buttonSubView.DrawButton("<", 20, 20, items.Count > 0))
+                    if (_buttonSubView.DrawButton("<", ARROW_SIZE, ARROW_SIZE, items.Count > 0))
                     {
                         this.currentIndex = this.prevIndex;
                         InvokeSelected();
@@ -166,7 +169,7 @@ namespace COM3D2.MotionTimelineEditor
 
                 if (showArrow)
                 {
-                    if (_buttonSubView.DrawButton(">", 20, 20, items.Count > 0))
+                    if (_buttonSubView.DrawButton(">", ARROW_SIZE, ARROW_SIZE, items.Count > 0))
                     {
                         this.currentIndex = this.nextIndex;
                         InvokeSelected();
@@ -194,7 +197,7 @@ namespace COM3D2.MotionTimelineEditor
             var subViewWidth = buttonSize.x;
             if (showArrow)
             {
-                subViewWidth += 40;
+                subViewWidth += ARROW_SIZE * 2;
             }
 
             var subViewRect = view.GetDrawRect(subViewWidth, buttonSize.y);
@@ -206,7 +209,7 @@ namespace COM3D2.MotionTimelineEditor
                 if (showArrow)
                 {
                     // 候補が空だと prevIndex / nextIndex が範囲外になるため押せなくする
-                    if (_buttonSubView.DrawButton("<", 20, 20, items.Count > 0))
+                    if (_buttonSubView.DrawButton("<", ARROW_SIZE, ARROW_SIZE, items.Count > 0))
                     {
                         this.currentIndex = this.prevIndex;
                         InvokeSelected();
@@ -227,7 +230,7 @@ namespace COM3D2.MotionTimelineEditor
 
                 if (showArrow)
                 {
-                    if (_buttonSubView.DrawButton(">", 20, 20, items.Count > 0))
+                    if (_buttonSubView.DrawButton(">", ARROW_SIZE, ARROW_SIZE, items.Count > 0))
                     {
                         this.currentIndex = this.nextIndex;
                         InvokeSelected();
