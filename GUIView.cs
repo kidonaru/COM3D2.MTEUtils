@@ -325,6 +325,16 @@ namespace COM3D2.MotionTimelineEditor
         public Color defaultColor = Color.white;
         public bool guiEnabled = true;
 
+        /// <summary>
+        /// 強制無効。true の間は SetEnabled(true) / BeginEnabled(true) を呼んでも有効にならない。
+        /// 描画途中で SetEnabled(focusedComboBox == null) 等が何度も呼ばれる区間を、
+        /// 外側から一括で無効化したいときに使う。解除する側が必ず false へ戻すこと。
+        /// このフラグは子ビューへ伝播しない。子ビュー (GUIComboBox の _buttonSubView 等) は
+        /// parent 代入時に親の guiEnabled を継承するので、子に直接 SetEnabled(true) を
+        /// 呼ばない限り無効のまま保たれる
+        /// </summary>
+        public bool forceDisabled = false;
+
         public class RepeatButtonInfo
         {
             public int lastPressFrame;
@@ -832,12 +842,13 @@ namespace COM3D2.MotionTimelineEditor
 
         public void SetEnabled(bool enabled)
         {
-            this.guiEnabled = enabled;
+            this.guiEnabled = enabled && !forceDisabled;
             EndEnabled();
         }
 
         public void BeginEnabled(bool enabled)
         {
+            enabled = enabled && !forceDisabled;
             if (enabled) return;
 
             if (enabled != guiEnabled)
