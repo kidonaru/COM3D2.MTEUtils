@@ -3023,13 +3023,16 @@ namespace COM3D2.MotionTimelineEditor
 
         /// <summary>
         /// 色設定を一行で描画する。
-        /// 「編集」ボタンで ColorPickerWindow を開き、そちらで詳細な編集を行う
+        /// 「編集」ボタンで ColorPickerWindow を開き、そちらで詳細な編集を行う。
+        /// fieldCache.label はピッカーの同定キー (対象ごとに一意) で見出しには長すぎるため、
+        /// 行に出す名前は displayLabel で上書きできる (省略時は fieldCache.label を使う)
         /// </summary>
         public bool DrawColor(
             ColorFieldCache fieldCache,
             Color color,
             Color resetColor,
-            Action<Color> onColorChanged)
+            Action<Color> onColorChanged,
+            string displayLabel = null)
         {
             fieldCache.UpdateColor(color, true);
             fieldCache.UpdateDefaultColor(resetColor);
@@ -3048,9 +3051,10 @@ namespace COM3D2.MotionTimelineEditor
 
             BeginLayout(LayoutDirection.Horizontal);
             {
-                if (label != null)
+                var rowLabel = displayLabel ?? label;
+                if (rowLabel != null)
                 {
-                    DrawLabel(label, 90, 20);
+                    DrawLabel(rowLabel, 90, 20);
                 }
 
                 DrawTexture(texWhite, 20, 20, color);
