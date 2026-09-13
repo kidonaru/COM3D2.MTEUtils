@@ -291,6 +291,9 @@ namespace COM3D2.MotionTimelineEditor
 
         public Vector2 currentPos;
         private LayoutDirection layoutDirection;
+
+        /// <summary>横並び中にビュー幅を超えたら折り返すか (BeginHorizontal(true) で有効)</summary>
+        private bool isHorizontalWrapEnabled;
         public Vector2 padding = defaultPadding;
 
         private Rect _viewRect;
@@ -660,6 +663,7 @@ namespace COM3D2.MotionTimelineEditor
         public void ResetLayout()
         {
             this.layoutDirection = LayoutDirection.Vertical;
+            this.isHorizontalWrapEnabled = false;
             this.currentPos = Vector2.zero;
             this.layoutMaxPos = Vector2.zero;
 
@@ -677,11 +681,18 @@ namespace COM3D2.MotionTimelineEditor
         public void BeginLayout(LayoutDirection direction)
         {
             this.layoutDirection = direction;
+            this.isHorizontalWrapEnabled = false;
         }
 
-        public void BeginHorizontal()
+        /// <summary>
+        /// 横並びを開始する。
+        /// wrap が true なら、要素がビュー幅に収まらなくなった時点で次の行へ折り返す
+        /// (幅を省略した「残り幅いっぱい」の要素は折り返しの対象外)
+        /// </summary>
+        public void BeginHorizontal(bool wrap = false)
         {
             BeginLayout(LayoutDirection.Horizontal);
+            this.isHorizontalWrapEnabled = wrap;
         }
 
         public void EndLayout()
@@ -689,6 +700,7 @@ namespace COM3D2.MotionTimelineEditor
             this.currentPos.x = 0;
             this.currentPos.y = this.layoutMaxPos.y;
             this.layoutDirection = LayoutDirection.Vertical;
+            this.isHorizontalWrapEnabled = false;
         }
 
         private void UpdateScrollViewContentRect(Rect newContentRect)
@@ -876,7 +888,32 @@ namespace COM3D2.MotionTimelineEditor
 
         public Rect GetDrawRect(float width, float height)
         {
+            WrapIfOverflow(width);
             return GetDrawRect(this.currentPos.x, this.currentPos.y, width, height);
+        }
+
+        /// <summary>
+        /// 折り返し有効な横並びで、これから描く幅がビューに収まらなければ次の行へ送る。
+        /// 行頭の要素は送っても収まらないので対象外。
+        /// 幅が負 (残り幅いっぱい) の要素は行内に収まる前提なので対象外
+        /// </summary>
+        private void WrapIfOverflow(float width)
+        {
+            if (!this.isHorizontalWrapEnabled ||
+                this.layoutDirection != LayoutDirection.Horizontal ||
+                width < 0f || this.currentPos.x <= 0f)
+            {
+                return;
+            }
+
+            var limitWidth = this.viewRect.width - this.padding.x * 2;
+            if (this.currentPos.x + width <= limitWidth)
+            {
+                return;
+            }
+
+            this.currentPos.x = 0;
+            this.currentPos.y = this.layoutMaxPos.y;
         }
 
         public void DrawEmpty(float width, float height)
