@@ -56,6 +56,9 @@ namespace COM3D2.MotionTimelineEditor
         private static Func<object> _getBloom;
         private static MethodInfo _applyBloom;
 
+        // 旧版ホストには無い任意メソッド。未定義でも接続自体は有効のまま
+        private static Action _showTimelineMode;
+
         // Apply 系へ渡すホスト側 DTO のインスタンスを使い回す (毎フレーム生成しない)
         private static object _paraffinArg;
         private static object _distanceFogArg;
@@ -134,6 +137,8 @@ namespace COM3D2.MotionTimelineEditor
                 _applyDepthOfField = type.GetMethod("ApplyDepthOfField", BindingFlags.Public | BindingFlags.Static);
                 _getBloom = CreateFuncObject(type, "GetBloom");
                 _applyBloom = type.GetMethod("ApplyBloom", BindingFlags.Public | BindingFlags.Static);
+
+                _showTimelineMode = CreateAction(type, "ShowTimelineMode");
 
                 if (_getMaxParaffinCount == null || _getMaxDistanceFogCount == null ||
                     _getMaxRimlightCount == null ||
@@ -242,6 +247,14 @@ namespace COM3D2.MotionTimelineEditor
             return null;
         }
 
+        private static Action CreateAction(Type type, string name)
+        {
+            var method = type.GetMethod(name, BindingFlags.Public | BindingFlags.Static);
+            return method == null
+                ? null
+                : (Action)Delegate.CreateDelegate(typeof(Action), method);
+        }
+
         private static Func<int> CreateFuncInt(Type type, string name)
         {
             var method = type.GetMethod(name, BindingFlags.Public | BindingFlags.Static);
@@ -289,6 +302,20 @@ namespace COM3D2.MotionTimelineEditor
             return method == null
                 ? null
                 : (Func<int, object>)Delegate.CreateDelegate(typeof(Func<int, object>), method);
+        }
+
+        /// <summary>
+        /// ホストのメインウィンドウをタイムラインタブへ切り替える。
+        /// メソッドを持たない旧版ホストでは何もしない
+        /// </summary>
+        public static void ShowTimelineMode()
+        {
+            if (!isAvailable || _showTimelineMode == null)
+            {
+                return;
+            }
+            try { _showTimelineMode(); }
+            catch (Exception e) { LogHostError("ShowTimelineMode", e); }
         }
 
         /// <summary>
