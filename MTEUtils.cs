@@ -48,69 +48,74 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
+        /// <summary>ログの種別</summary>
+        public enum LogLevel
+        {
+            Info,
+            Warning,
+            Error,
+            Exception,
+        }
+
+        /// <summary>
+        /// ログの出力先。既定は Unity のコンソール。
+        /// Unity ランタイムの無い単体テストから no-op へ差し替えるための口
+        /// (差し替えると MainThreadDispatcher も経由しなくなる)
+        /// </summary>
+        public static Action<LogLevel, string, Exception> logOutput = OutputToUnity;
+
+        private static void OutputToUnity(LogLevel level, string message, Exception e)
+        {
+            if (Thread.CurrentThread.IsBackground)
+            {
+                EnqueueAction(() => WriteToUnityConsole(level, message, e));
+                return;
+            }
+            WriteToUnityConsole(level, message, e);
+        }
+
+        private static void WriteToUnityConsole(LogLevel level, string message, Exception e)
+        {
+            switch (level)
+            {
+                case LogLevel.Exception:
+                    UnityEngine.Debug.LogException(e);
+                    break;
+                case LogLevel.Error:
+                    UnityEngine.Debug.LogError(message);
+                    break;
+                case LogLevel.Warning:
+                    UnityEngine.Debug.LogWarning(message);
+                    break;
+                default:
+                    UnityEngine.Debug.Log(message);
+                    break;
+            }
+        }
+
         [Conditional("DEBUG")]
         public static void LogDebug(string format, params object[] args)
         {
-            string message = string.Format(format, args);
-            if (Thread.CurrentThread.IsBackground)
-            {
-                MTEUtils.EnqueueAction(() =>
-                {
-                    UnityEngine.Debug.Log("[Debug] " + PluginName + ": " + message);
-                });
-                return;
-            }
-            UnityEngine.Debug.Log("[Debug] " + PluginName + ": " + message);
+            logOutput(LogLevel.Info, "[Debug] " + PluginName + ": " + string.Format(format, args), null);
         }
 
         public static void Log(string format, params object[] args)
         {
-            string message = string.Format(format, args);
-            if (Thread.CurrentThread.IsBackground)
-            {
-                MTEUtils.EnqueueAction(() =>
-                {
-                    UnityEngine.Debug.Log(PluginName + ": " + message);
-                });
-                return;
-            }
-            UnityEngine.Debug.Log(PluginName + ": " + message);
+            logOutput(LogLevel.Info, PluginName + ": " + string.Format(format, args), null);
         }
 
         public static void LogWarning(string format, params object[] args)
         {
-            string message = string.Format(format, args);
-            if (Thread.CurrentThread.IsBackground)
-            {
-                MTEUtils.EnqueueAction(() =>
-                {
-                    UnityEngine.Debug.LogWarning(PluginName + ": " + message);
-                });
-                return;
-            }
-            UnityEngine.Debug.LogWarning(PluginName + ": " + message);
+            logOutput(LogLevel.Warning, PluginName + ": " + string.Format(format, args), null);
         }
-        
+
         public static void LogError(string format, params object[] args)
         {
-            string message = string.Format(format, args);
-            if (Thread.CurrentThread.IsBackground)
-            {
-                MTEUtils.EnqueueAction(() =>
-                {
+            string message = PluginName + ": " + string.Format(format, args);
 #if DEBUG
-                    UnityEngine.Debug.LogError(PluginName + ": " + message + "\n" + Environment.StackTrace);
-#else
-                    UnityEngine.Debug.LogError(PluginName + ": " + message);
+            message += "\n" + Environment.StackTrace;
 #endif
-                });
-                return;
-            }
-#if DEBUG
-            UnityEngine.Debug.LogError(PluginName + ": " + message + "\n" + Environment.StackTrace);
-#else
-            UnityEngine.Debug.LogError(PluginName + ": " + message);
-#endif
+            logOutput(LogLevel.Error, message, null);
         }
 
         public static void AssertNull(bool condition, string message)
@@ -127,15 +132,7 @@ namespace COM3D2.MotionTimelineEditor
 
         public static void LogException(Exception e)
         {
-            if (Thread.CurrentThread.IsBackground)
-            {
-                MTEUtils.EnqueueAction(() =>
-                {
-                    UnityEngine.Debug.LogException(e);
-                });
-                return;
-            }
-            UnityEngine.Debug.LogException(e);
+            logOutput(LogLevel.Exception, e != null ? e.ToString() : "", e);
         }
 
         public static bool showMemoryUsage = false;
