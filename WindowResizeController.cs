@@ -182,7 +182,8 @@ namespace COM3D2.MotionTimelineEditor
 
         /// <summary>
         /// ウィンドウローカル座標がどの辺・角のつかみ範囲にあるかを返す。
-        /// 縦横どちらの角範囲にも入っていれば角として扱い、RESIZE_CORNER 四方すべてを有効にする
+        /// 角は辺のつかみ幅 (RESIZE_BORDER) の帯を角から RESIZE_CORNER まで L 字に伸ばした範囲。
+        /// 内側へ四角く広げると内容の描画領域をクリックできなくなるため、帯の上だけを角として扱う
         /// </summary>
         private static ResizeEdge GetEdge(Rect windowRect, Vector2 localPos)
         {
@@ -193,17 +194,23 @@ namespace COM3D2.MotionTimelineEditor
                 return ResizeEdge.None;
             }
 
+            var onLeft = localPos.x <= RESIZE_BORDER;
+            var onRight = localPos.x >= width - RESIZE_BORDER;
+            var onTop = localPos.y <= RESIZE_BORDER;
+            var onBottom = localPos.y >= height - RESIZE_BORDER;
+            var onHorizontalEdge = onTop || onBottom;
+            var onVerticalEdge = onLeft || onRight;
+
             var nearLeft = localPos.x <= RESIZE_CORNER;
             var nearRight = localPos.x >= width - RESIZE_CORNER;
             var nearTop = localPos.y <= RESIZE_CORNER;
             var nearBottom = localPos.y >= height - RESIZE_CORNER;
-            var isCorner = (nearLeft || nearRight) && (nearTop || nearBottom);
 
             var edge = ResizeEdge.None;
-            if (localPos.x <= RESIZE_BORDER || (isCorner && nearLeft)) edge |= ResizeEdge.Left;
-            if (localPos.x >= width - RESIZE_BORDER || (isCorner && nearRight)) edge |= ResizeEdge.Right;
-            if (localPos.y <= RESIZE_BORDER || (isCorner && nearTop)) edge |= ResizeEdge.Top;
-            if (localPos.y >= height - RESIZE_BORDER || (isCorner && nearBottom)) edge |= ResizeEdge.Bottom;
+            if (onLeft || (onHorizontalEdge && nearLeft)) edge |= ResizeEdge.Left;
+            if (onRight || (onHorizontalEdge && nearRight)) edge |= ResizeEdge.Right;
+            if (onTop || (onVerticalEdge && nearTop)) edge |= ResizeEdge.Top;
+            if (onBottom || (onVerticalEdge && nearBottom)) edge |= ResizeEdge.Bottom;
             return edge;
         }
 
