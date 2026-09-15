@@ -45,7 +45,7 @@ namespace COM3D2.MotionTimelineEditor
         /// ボーン用の小さいギズモでは 8px だと狙いづらいため広めに取る
         /// </summary>
         private const float RotateHitThreshold = 16f;
-        private const float GizmoScreenScale = 0.15f; // カメラ距離に対するギズモサイズ比
+        private const float GizmoScreenScale = 0.15f; // 基準画角でのカメラ距離に対するギズモサイズ比
 
         // 見た目はゲーム本体の GizmoRender に合わせている。
         // 半円は円周 100 分割、矢じりの円錐は 30 分割、比率は軸長に対する値
@@ -125,12 +125,33 @@ namespace COM3D2.MotionTimelineEditor
         }
 
         /// <summary>
-        /// カメラ距離に比例したギズモの世界サイズ。見かけの大きさを一定に保つ。
+        /// ギズモの大きさを合わせる基準の画角。この画角では補正前 (距離 × GizmoScreenScale) と一致する
+        /// </summary>
+        private const float ReferenceFov = 45f;
+
+        /// <summary>
+        /// 画面上の見かけの大きさを一定に保つギズモの世界サイズ。
+        /// 距離だけに比例させると、望遠 (fov 小) で画面いっぱいに広がり、広角で小さくなりすぎるため、
+        /// 対象位置での画面の高さで正規化する。
         /// ギズモ以外のカメラ距離比例な描画 (ライトアイコン等) からも使う
         /// </summary>
         public static float CalcGizmoSize(Camera camera, Vector3 position)
         {
-            return Vector3.Distance(camera.transform.position, position) * GizmoScreenScale;
+            // オルソでは距離が見かけの大きさに影響しないので、画角の代わりに表示範囲を使う
+            var halfHeight = camera.orthographic
+                ? camera.orthographicSize
+                : Mathf.Tan(camera.fieldOfView * 0.5f * Mathf.Deg2Rad)
+                    * Vector3.Distance(camera.transform.position, position);
+            return CalcGizmoSizeFromHalfHeight(halfHeight);
+        }
+
+        /// <summary>
+        /// 対象位置での「画面半分の高さ」からギズモの世界サイズを求める。
+        /// Camera を必要としないので単体テストから検証できる
+        /// </summary>
+        public static float CalcGizmoSizeFromHalfHeight(float halfHeight)
+        {
+            return halfHeight * GizmoScreenScale / Mathf.Tan(ReferenceFov * 0.5f * Mathf.Deg2Rad);
         }
 
         private float GizmoSize(Camera camera, Vector3 position)
