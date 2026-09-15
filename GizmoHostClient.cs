@@ -25,6 +25,8 @@ namespace COM3D2.MotionTimelineEditor
         private static Action<object> _unregister;
         private static Func<bool> _isViewActive;
         private static bool _viewActiveFailed;
+        private static Func<Camera, bool> _isGizmoVisible;
+        private static bool _gizmoVisibleFailed;
         private static bool _initialized;
 
         public static bool isAvailable
@@ -71,6 +73,30 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
+        /// <summary>
+        /// 指定カメラのビューでホストがギズモ表示を許しているか。
+        /// ホスト不在・旧ホスト・取得失敗時は true (従来どおり表示) に倒す。
+        /// 毎フレーム呼ばれる経路なので、一度失敗したら以後は問い合わせない
+        /// </summary>
+        public static bool IsGizmoVisible(Camera camera)
+        {
+            if (!isAvailable || _gizmoVisibleFailed || _isGizmoVisible == null)
+            {
+                return true;
+            }
+
+            try
+            {
+                return _isGizmoVisible(camera);
+            }
+            catch (Exception e)
+            {
+                MTEUtils.LogWarning("GizmoHostClient: ギズモ表示状態の取得に失敗しました: " + e.Message);
+                _gizmoVisibleFailed = true;
+                return true;
+            }
+        }
+
         private static void Initialize()
         {
             if (_initialized)
@@ -110,6 +136,15 @@ namespace COM3D2.MotionTimelineEditor
                 {
                     _isViewActive = (Func<bool>)Delegate.CreateDelegate(typeof(Func<bool>), isViewActive);
                 }
+
+                // 表示状態の問い合わせも後発 API のため任意。
+                // 旧ホストでは見つからず、その場合は常に表示扱いになる
+                var isGizmoVisible = type.GetMethod("IsGizmoVisible", BindingFlags.Public | BindingFlags.Static);
+                if (isGizmoVisible != null)
+                {
+                    _isGizmoVisible = (Func<Camera, bool>)Delegate.CreateDelegate(
+                        typeof(Func<Camera, bool>), isGizmoVisible);
+                }
             }
             catch (Exception e)
             {
@@ -118,6 +153,7 @@ namespace COM3D2.MotionTimelineEditor
                 _register = null;
                 _unregister = null;
                 _isViewActive = null;
+                _isGizmoVisible = null;
             }
         }
 
