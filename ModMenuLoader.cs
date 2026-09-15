@@ -136,26 +136,26 @@ namespace COM3D2.MotionTimelineEditor
 
         public void Dump()
         {
-            MTEUtils.Log("fileName: {0}", fileName);
-            MTEUtils.Log("path: {0}", path);
-            MTEUtils.Log("rid: {0}", rid);
-            MTEUtils.Log("name: {0}", name);
-            MTEUtils.Log("setumei: {0}", setumei);
-            MTEUtils.Log("mpn: {0}", maidPartType);
-            MTEUtils.Log("iconName: {0}", iconName);
-            MTEUtils.Log("iconData: {0}", iconData.Length);
-            MTEUtils.Log("priority: {0}", priority);
-            MTEUtils.Log("modelFileName: {0}", modelFileName);
-            MTEUtils.Log("setItemMenuNames: {0}", setItemMenuNames != null ? string.Join(", ", setItemMenuNames.ToArray()) : "");
-            MTEUtils.Log("colorSetMPN: {0}", colorSetMaidPartType);
-            MTEUtils.Log("colorSetMenuName: {0}", colorSetMenuName);
-            MTEUtils.Log("variationBaseFileName: {0}", variationBaseFileName);
-            MTEUtils.Log("modBaseFileName: {0}", modBaseFileName);
-            MTEUtils.Log("partsColorId: {0}", partsColorId);
-            MTEUtils.Log("lastWriteAt: {0}", lastWriteAt);
-            MTEUtils.Log("isHidden: {0}", isHidden);
-            MTEUtils.Log("isOfficial: {0}", isOfficial);
-            MTEUtils.Log("isMan: {0}", isMan);
+            MTEUtils.LogDebug("fileName: {0}", fileName);
+            MTEUtils.LogDebug("path: {0}", path);
+            MTEUtils.LogDebug("rid: {0}", rid);
+            MTEUtils.LogDebug("name: {0}", name);
+            MTEUtils.LogDebug("setumei: {0}", setumei);
+            MTEUtils.LogDebug("mpn: {0}", maidPartType);
+            MTEUtils.LogDebug("iconName: {0}", iconName);
+            MTEUtils.LogDebug("iconData: {0}", iconData.Length);
+            MTEUtils.LogDebug("priority: {0}", priority);
+            MTEUtils.LogDebug("modelFileName: {0}", modelFileName);
+            MTEUtils.LogDebug("setItemMenuNames: {0}", setItemMenuNames != null ? string.Join(", ", setItemMenuNames.ToArray()) : "");
+            MTEUtils.LogDebug("colorSetMPN: {0}", colorSetMaidPartType);
+            MTEUtils.LogDebug("colorSetMenuName: {0}", colorSetMenuName);
+            MTEUtils.LogDebug("variationBaseFileName: {0}", variationBaseFileName);
+            MTEUtils.LogDebug("modBaseFileName: {0}", modBaseFileName);
+            MTEUtils.LogDebug("partsColorId: {0}", partsColorId);
+            MTEUtils.LogDebug("lastWriteAt: {0}", lastWriteAt);
+            MTEUtils.LogDebug("isHidden: {0}", isHidden);
+            MTEUtils.LogDebug("isOfficial: {0}", isOfficial);
+            MTEUtils.LogDebug("isMan: {0}", isMan);
         }
     }
 
