@@ -11,6 +11,7 @@ namespace COM3D2.MotionTimelineEditor
         float keyRepeatTime { get; }
         bool useHSVColor { get; set; }
         Color windowHoverColor { get; }
+        Color popupWindowColor { get; }
         Color accentColor { get; }
         Texture2D changeIcon { get; }
         Texture2D favoriteOffIcon { get; }
@@ -23,6 +24,8 @@ namespace COM3D2.MotionTimelineEditor
         public virtual float keyRepeatTime { get; } = 1f / 30f;
         public virtual bool useHSVColor { get; set; } = false;
         public virtual Color windowHoverColor { get; } = new Color(48 / 255f, 48 / 255f, 48 / 255f, 224 / 255f);
+        // ドロップダウン式ポップアップの背景。下のウィンドウが透けて読みにくくならないよう不透明寄りにする
+        public virtual Color popupWindowColor { get; } = new Color(32 / 255f, 32 / 255f, 32 / 255f, 240 / 255f);
         // トグル・ボタン等の有効状態を示すアクセント色 (従来の Color.green 相当)
         public virtual Color accentColor { get; } = Color.green;
         public virtual Texture2D changeIcon => GUIView.texWhite;
@@ -534,12 +537,15 @@ namespace COM3D2.MotionTimelineEditor
             _gsWin.active.textColor = winTextColor;
             _gsWin.onActive.textColor = winTextColor;
 
-            // ポップアップは開いている間ほぼ常にマウスが乗るため、ホバー背景を持たせない
+            // ポップアップは開いている間ほぼ常にマウスが乗るため、ホバー背景を持たせず全状態を同じ背景にする
+            var popupTex = CreateColorTexture(option.popupWindowColor);
             _gsPopupWin = new GUIStyle(_gsWin);
-            _gsPopupWin.onHover.background = _gsWin.normal.background;
-            _gsPopupWin.hover.background = _gsWin.normal.background;
-            _gsPopupWin.onFocused.background = _gsWin.normal.background;
-            _gsPopupWin.focused.background = _gsWin.normal.background;
+            _gsPopupWin.normal.background = popupTex;
+            _gsPopupWin.onNormal.background = popupTex;
+            _gsPopupWin.onHover.background = popupTex;
+            _gsPopupWin.hover.background = popupTex;
+            _gsPopupWin.onFocused.background = popupTex;
+            _gsPopupWin.focused.background = popupTex;
 
             _gsLabel = new GUIStyle("label")
             {
