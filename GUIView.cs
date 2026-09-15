@@ -2320,6 +2320,97 @@ namespace COM3D2.MotionTimelineEditor
             focusedComboBox = null;
         }
 
+        // ---- ドロップダウン式ポップアップ (コンボボックス・メニューバー共通) ----
+
+        /// <summary>ポップアップ枠の幅。項目リストはこの内側から始める</summary>
+        public static readonly int POPUP_FRAME = 2;
+        /// <summary>ポップアップ 1 行の高さ</summary>
+        public static readonly int POPUP_ITEM_HEIGHT = 22;
+        /// <summary>IMGUI 既定の縦スクロールバー幅。項目幅の差し引きに使う</summary>
+        public static readonly int POPUP_SCROLLBAR_WIDTH = 16;
+        /// <summary>ポップアップ項目のホバー色。label スタイルはホバー反応を持たないため自前で塗る</summary>
+        public static readonly Color POPUP_HOVER_COLOR = new Color(1f, 1f, 1f, 0.15f);
+
+        /// <summary>枠を除いた項目リスト全体の高さ</summary>
+        public static float GetPopupContentHeight(int rowCount)
+        {
+            return POPUP_ITEM_HEIGHT * rowCount;
+        }
+
+        /// <summary>枠込みのポップアップ高さ。空リストでも枠が潰れないよう 1 行分は確保する</summary>
+        public static float GetPopupHeight(int rowCount)
+        {
+            return GetPopupContentHeight(Mathf.Max(rowCount, 1)) + POPUP_FRAME * 2;
+        }
+
+        /// <summary>
+        /// ポップアップの項目リストを viewRect いっぱいに始める。戻り値は 1 行の幅。
+        /// 収まらないときはスクロールバーが出る分だけ項目を狭め、横スクロールを出さない。
+        /// EndPopupList と対で使う
+        /// </summary>
+        public float BeginPopupList(int rowCount)
+        {
+            // 枠の内側からスクロール領域を始める。padding だとスクロール内の
+            // 項目座標にも加算されてずれるため、currentPos で位置だけ寄せる
+            currentPos = new Vector2(POPUP_FRAME, POPUP_FRAME);
+
+            var viewWidth = viewRect.width - POPUP_FRAME * 2;
+            var viewHeight = viewRect.height - POPUP_FRAME * 2;
+            var contentHeight = GetPopupContentHeight(rowCount);
+
+            var itemWidth = contentHeight > viewHeight
+                ? viewWidth - POPUP_SCROLLBAR_WIDTH
+                : viewWidth;
+
+            BeginScrollView(viewWidth, viewHeight,
+                new Rect(0, 0, itemWidth, contentHeight), false, false);
+
+            return itemWidth;
+        }
+
+        public void EndPopupList()
+        {
+            EndScrollView();
+        }
+
+        /// <summary>
+        /// ポップアップの 1 行を描く。押されたら true。
+        /// isOn の行は「✓ 」を前置し、それ以外は同じ幅だけ空けてラベルの頭を揃える
+        /// </summary>
+        public bool DrawPopupRow(
+            string name,
+            bool isOn,
+            float itemWidth,
+            bool enabled = true,
+            Color? color = null)
+        {
+            bool isHover;
+            return DrawPopupRow(name, isOn, itemWidth, out isHover, enabled, color);
+        }
+
+        /// <summary>ホバー中かも返す版。ホバーでサブメニューを開く用途向け</summary>
+        public bool DrawPopupRow(
+            string name,
+            bool isOn,
+            float itemWidth,
+            out bool isHover,
+            bool enabled = true,
+            Color? color = null)
+        {
+            // GetDrawRect は currentPos を進めないので直後のボタンと同じ矩形になる
+            var rect = GetDrawRect(itemWidth, POPUP_ITEM_HEIGHT);
+            isHover = rect.Contains(Event.current.mousePosition);
+            if (isHover)
+            {
+                BeginColor(POPUP_HOVER_COLOR);
+                GUI.DrawTexture(rect, Texture2D.whiteTexture);
+                EndColor();
+            }
+
+            var label = (isOn ? "✓ " : "    ") + name;
+            return DrawButton(label, itemWidth, POPUP_ITEM_HEIGHT, enabled, color, gsLabel);
+        }
+
         public int DrawListView<T>(
             List<T> items,
             Func<T, int, string> getName,

@@ -242,29 +242,41 @@ namespace COM3D2.MotionTimelineEditor
             view.NextElement(subViewRect);
         }
 
+        /// <summary>ポップアップの行数。派生で先頭行などを足す場合に上書きする</summary>
+        protected virtual int popupRowCount => items.Count;
+
+        /// <summary>
+        /// ポップアップのサイズ。行高・枠幅はメニューバーと共通 (GUIView.POPUP_*)。
+        /// 収まらないときは項目側を狭めてスクロールバーを出すため、幅は contentSize.x のまま
+        /// </summary>
         public override Vector2 GetPopupSize()
         {
-            var width = this.contentSize.x + 20; // スクロールバー分広げる
-            var height = Mathf.Min(
-                this.contentSize.y,
-                this.items.Count * this.buttonSize.y);
-            // 空リストでも枠が潰れないよう 1 行分は確保する
-            height = Mathf.Max(height, this.buttonSize.y);
-            return new Vector2(width, height);
+            var height = Mathf.Min(contentSize.y, GUIView.GetPopupHeight(popupRowCount));
+            return new Vector2(contentSize.x, height);
         }
 
         public override bool DrawPopupContent(GUIView view)
         {
-            var selectedIndex = view.DrawListView(
-                this.items,
-                this.getName,
-                this.getEnabled,
-                view.viewRect.width,
-                view.viewRect.height,
-                this.currentIndex,
-                this.buttonSize.y);
+            var selectedIndex = -1;
 
-            if (selectedIndex >= 0 && selectedIndex < this.items.Count)
+            var itemWidth = view.BeginPopupList(items.Count);
+            {
+                for (var i = 0; i < items.Count; i++)
+                {
+                    var item = items[i];
+                    var isCurrent = i == currentIndex;
+                    var color = isCurrent ? GUIView.option.accentColor : Color.white;
+                    var enabled = getEnabled == null || getEnabled(item, i);
+
+                    if (view.DrawPopupRow(getName(item, i), isCurrent, itemWidth, enabled, color))
+                    {
+                        selectedIndex = i;
+                    }
+                }
+            }
+            view.EndPopupList();
+
+            if (selectedIndex >= 0)
             {
                 this.currentIndex = selectedIndex;
                 InvokeSelected();
