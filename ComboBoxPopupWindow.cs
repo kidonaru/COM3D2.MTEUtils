@@ -152,7 +152,7 @@ namespace COM3D2.MotionTimelineEditor
 
             // ホストのドラッグ移動に追従するよう毎フレーム計算する
             _popupRect = CalcPopupRect();
-            GUI.Window(WINDOW_ID, _popupRect, DrawPopup, "", GUIView.gsWin);
+            GUI.Window(WINDOW_ID, _popupRect, DrawPopup, "", GUIView.gsPopupWin);
             // 他のウィンドウに隠されないよう最前面へ
             GUI.BringWindowToFront(WINDOW_ID);
         }

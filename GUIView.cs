@@ -445,6 +445,7 @@ namespace COM3D2.MotionTimelineEditor
         private static bool _stylesInitialized = false;
 
         private static GUIStyle _gsWin = null;
+        private static GUIStyle _gsPopupWin = null;
         private static GUIStyle _gsLabel = null;
         private static GUIStyle _gsLabelRight = null;
         private static GUIStyle _gsButton = null;
@@ -460,6 +461,8 @@ namespace COM3D2.MotionTimelineEditor
         private static GUIStyle _gsBox = null;
 
         public static GUIStyle gsWin { get { InitStyles(); return _gsWin; } }
+        /// <summary>ドロップダウン式ポップアップ用のウィンドウスタイル。ホバー・フォーカスで背景色が変わらない</summary>
+        public static GUIStyle gsPopupWin { get { InitStyles(); return _gsPopupWin; } }
         public static GUIStyle gsLabel { get { InitStyles(); return _gsLabel; } }
         public static GUIStyle gsLabelRight { get { InitStyles(); return _gsLabelRight; } }
         public static GUIStyle gsButton { get { InitStyles(); return _gsButton; } }
@@ -530,6 +533,13 @@ namespace COM3D2.MotionTimelineEditor
             _gsWin.onFocused.textColor = winTextColor;
             _gsWin.active.textColor = winTextColor;
             _gsWin.onActive.textColor = winTextColor;
+
+            // ポップアップは開いている間ほぼ常にマウスが乗るため、ホバー背景を持たせない
+            _gsPopupWin = new GUIStyle(_gsWin);
+            _gsPopupWin.onHover.background = _gsWin.normal.background;
+            _gsPopupWin.hover.background = _gsWin.normal.background;
+            _gsPopupWin.onFocused.background = _gsWin.normal.background;
+            _gsPopupWin.focused.background = _gsWin.normal.background;
 
             _gsLabel = new GUIStyle("label")
             {
