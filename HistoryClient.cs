@@ -15,6 +15,7 @@ namespace COM3D2.MotionTimelineEditor
     /// 契約 (ホスト側 HistoryAPI と同じ):
     /// - Register は「確定済み」の操作 1 件を登録する。ドラッグ中の連続変更を
     ///   1 件へまとめるのは呼び出し側の責務 (操作確定時に 1 回だけ呼ぶ)
+    /// - BeforeEdit は確定前の操作向け。値を書く直前に毎回呼び、確定は本体に任せる (旧版ホストでは no-op)
     /// - undo/redo クロージャは冪等であり、他エントリとの順序に依存しないこと
     ///   (履歴ウィンドウのジャンプで連続適用される)
     /// - undo/redo/canApply の中から Register/Undo/Redo を呼び返さないこと
@@ -30,6 +31,13 @@ namespace COM3D2.MotionTimelineEditor
         private static Func<bool> _canRedo;
         private static Action<Action> _addOnChanged;
         private static Action<Action> _removeOnChanged;
+        // .NET 3.5 (COM3D2 構成) には 5 引数の Action が無いため専用のデリゲート型を使う
+        private delegate void BeforeEditDelegate(
+            string description, string targetKey,
+            Func<string> capture, Action<string> apply, Func<bool> canApply);
+
+        // 旧版ホストには無い任意メソッド。未定義でも Register 等の接続自体は有効のまま
+        private static BeforeEditDelegate _beforeEdit;
         private static bool _initialized;
 
         public static bool isAvailable
@@ -94,6 +102,14 @@ namespace COM3D2.MotionTimelineEditor
                     _removeOnChanged = (Action<Action>)Delegate.CreateDelegate(
                         typeof(Action<Action>), onChanged.GetRemoveMethod());
                 }
+
+                // 変更前記録は新しめのホストにしか無いので、無ければ no-op に落とす
+                var beforeEdit = type.GetMethod("BeforeEdit", BindingFlags.Public | BindingFlags.Static);
+                if (beforeEdit != null)
+                {
+                    _beforeEdit = (BeforeEditDelegate)Delegate.CreateDelegate(
+                        typeof(BeforeEditDelegate), beforeEdit);
+                }
             }
             catch (Exception e)
             {
@@ -106,6 +122,7 @@ namespace COM3D2.MotionTimelineEditor
                 _canRedo = null;
                 _addOnChanged = null;
                 _removeOnChanged = null;
+                _beforeEdit = null;
             }
         }
 
@@ -122,6 +139,29 @@ namespace COM3D2.MotionTimelineEditor
             if (isAvailable)
             {
                 _register(description, undo, redo, canApply);
+            }
+        }
+
+        /// <summary>ホストが変更前記録 (BeforeEdit) に対応しているか</summary>
+        public static bool canBeforeEdit => isAvailable && _beforeEdit != null;
+
+        /// <summary>
+        /// 変更前の状態を控える。値を書き換える操作の直前に毎回呼んでよく、
+        /// 同じ targetKey の連続変更はホスト側でマウス解放時に 1 件へまとまる。
+        /// 編集モードへの自動移行も伴う。SceneEditor が無い・旧版なら何もしない
+        /// </summary>
+        /// <param name="description">履歴ウィンドウに表示する操作名</param>
+        /// <param name="targetKey">確定待ちを区別するキー。null なら区別しない</param>
+        /// <param name="capture">現在の状態を文字列で返す。記録できないときは null</param>
+        /// <param name="apply">文字列の状態を書き戻す</param>
+        /// <param name="canApply">今は適用できないとき false。null なら常に適用可</param>
+        public static void BeforeEdit(
+            string description, string targetKey,
+            Func<string> capture, Action<string> apply, Func<bool> canApply = null)
+        {
+            if (canBeforeEdit)
+            {
+                _beforeEdit(description, targetKey, capture, apply, canApply);
             }
         }
 
