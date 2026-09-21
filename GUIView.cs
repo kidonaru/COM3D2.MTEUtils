@@ -1945,6 +1945,23 @@ namespace COM3D2.MotionTimelineEditor
         /// <summary>ドラッグラベル + 数値入力 (int) の既定感度</summary>
         public static readonly float DefaultIntDragSensitivity = 0.5f;
 
+        /// <summary>スライダー行のラベルドラッグで、レンジ全幅を動かすのに要する px 数</summary>
+        private const float SliderDragRangePixels = 200f;
+
+        /// <summary>
+        /// スライダー行のラベルドラッグ感度 (dragSensitivity 未指定時の既定値)。
+        /// レンジ幅基準で、Int は 1 段ずつ動かせるよう下限を設ける
+        /// </summary>
+        public static float SliderDragSensitivity(float min, float max, bool isInt)
+        {
+            var sensitivity = Mathf.Abs(max - min) / SliderDragRangePixels;
+            if (isInt)
+            {
+                return Mathf.Max(sensitivity, DefaultIntDragSensitivity);
+            }
+            return sensitivity > 0f ? sensitivity : DefaultFloatDragSensitivity;
+        }
+
         public struct DragFloatFieldOption
         {
             public string label;
@@ -2998,12 +3015,15 @@ namespace COM3D2.MotionTimelineEditor
         {
             public string label;
             public float labelWidth;
-            /// <summary>ラベルドラッグ 1px あたりの増減量。0 以下ならラベルはドラッグ不可</summary>
+            /// <summary>ラベルドラッグ 1px あたりの増減量。0 以下なら SliderDragSensitivity で min/max から算出する</summary>
             public float dragSensitivity;
             public float width;
             public FloatFieldType fieldType;
             public float min;
             public float max;
+            /// <summary>
+            /// 未使用。廃止した &lt;/&gt; ボタンの増分で、このサブモジュールを共有する他プラグインとの互換のため残している
+            /// </summary>
             public float step;
             public float defaultValue;
             public float value;
@@ -3035,31 +3055,28 @@ namespace COM3D2.MotionTimelineEditor
                 var label = fieldCache.label;
                 if (!string.IsNullOrEmpty(label))
                 {
-                    if (option.dragSensitivity > 0f)
+                    var isInt = option.fieldType == FloatFieldType.Int;
+                    var sensitivity = option.dragSensitivity > 0f
+                        ? option.dragSensitivity
+                        : SliderDragSensitivity(option.min, option.max, isInt);
+
+                    subView.DrawDragLabel(label, option.labelWidth, 20, sensitivity, delta =>
                     {
-                        var isInt = option.fieldType == FloatFieldType.Int;
-                        subView.DrawDragLabel(label, option.labelWidth, 20, option.dragSensitivity, delta =>
+                        // 混在 (NaN) はドラッグの起点が定まらないため変更しない
+                        if (float.IsNaN(newValue)) return;
+
+                        if (isInt)
                         {
-                            // 混在 (NaN) はドラッグの起点が定まらないため変更しない
-                            if (float.IsNaN(newValue)) return;
+                            int step;
+                            if (!TryTakeIntDragStep(delta, out step)) return;
+                            delta = step;
+                        }
+                        newValue = Mathf.Clamp(newValue + delta, option.min, option.max);
+                    },
+                    onDragStart: isInt ? (Action)(() => _intDragResidual = 0f) : null);
 
-                            if (isInt)
-                            {
-                                int step;
-                                if (!TryTakeIntDragStep(delta, out step)) return;
-                                delta = step;
-                            }
-                            newValue = Mathf.Clamp(newValue + delta, option.min, option.max);
-                        },
-                        onDragStart: isInt ? (Action)(() => _intDragResidual = 0f) : null);
-
-                        // ドラッグで変わった値を同じフレームの入力欄へ出すためキャッシュを更新する
-                        fieldCache.UpdateValue(newValue);
-                    }
-                    else
-                    {
-                        subView.DrawLabel(label, option.labelWidth, 20);
-                    }
+                    // ドラッグで変わった値を同じフレームの入力欄へ出すためキャッシュを更新する
+                    fieldCache.UpdateValue(newValue);
                     sliderWidth -= option.labelWidth;
                 }
 
@@ -3073,19 +3090,6 @@ namespace COM3D2.MotionTimelineEditor
                     fieldCache = fieldCache,
                     onChanged = x => newValue = x,
                 });
-
-                if (option.step > 0f)
-                {
-                    if (subView.DrawRepeatButton("<", 20, 20))
-                    {
-                        newValue -= option.step;
-                    }
-                    if (subView.DrawRepeatButton(">", 20, 20))
-                    {
-                        newValue += option.step;
-                    }
-                    sliderWidth -= 40;
-                }
 
                 subView.AddSpace(5);
 
