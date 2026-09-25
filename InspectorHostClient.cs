@@ -7,6 +7,7 @@ namespace COM3D2.MotionTimelineEditor
     /// <summary>
     /// SceneEditor プラグインの InspectorHost へのリフレクションブリッジ。
     /// 登録すると、SceneEditor Inspector で対象オブジェクト選択時に内容描画が丸ごと委譲される。
+    /// RegisterRows で登録すると、ホストが描く内容の末尾へ固有の行だけを足せる。
     /// SceneEditor が不在・旧バージョンの場合は isAvailable が false になり、
     /// 呼び出し側は登録しない (SceneEditor Inspector は従来描画のまま)
     /// </summary>
@@ -23,7 +24,13 @@ namespace COM3D2.MotionTimelineEditor
             Action<GameObject, Rect> draw,
             bool drawsHeader);
 
+        private delegate object RegisterRowsDelegate(
+            string name,
+            Func<GameObject, bool> canDraw,
+            Func<GameObject, Rect, float> drawRows);
+
         private static RegisterDelegate _register;
+        private static RegisterRowsDelegate _registerRows;
         private static Register2Delegate _register2;
         private static Action<object> _unregister;
         private static Func<Rect> _getWindowRect;
@@ -75,6 +82,19 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
+        /// <summary>
+        /// ホストが描く内容の末尾へ固有の行だけを足せるか。
+        /// 足せない旧バージョンの SceneEditor では、従来どおり Register で内容を丸ごと描く
+        /// </summary>
+        public static bool isRowsDrawAvailable
+        {
+            get
+            {
+                Initialize();
+                return _registerRows != null;
+            }
+        }
+
         private static void Initialize()
         {
             if (_initialized)
@@ -118,6 +138,30 @@ namespace COM3D2.MotionTimelineEditor
 
             InitializeWindowState(type);
             InitializeHeaderDraw(type);
+            InitializeRowsDraw(type);
+        }
+
+        /// <summary>
+        /// 行の委譲も後から足した API なので、無くても既存の登録は成立させる
+        /// </summary>
+        private static void InitializeRowsDraw(Type type)
+        {
+            try
+            {
+                var registerRows = type.GetMethod("RegisterRows", BindingFlags.Public | BindingFlags.Static);
+                if (registerRows == null)
+                {
+                    return;
+                }
+
+                _registerRows = (RegisterRowsDelegate)Delegate.CreateDelegate(
+                    typeof(RegisterRowsDelegate), registerRows);
+            }
+            catch (Exception e)
+            {
+                MTEUtils.LogWarning("InspectorHostClient: 行の委譲 API の解決に失敗しました: " + e.Message);
+                _registerRows = null;
+            }
         }
 
         /// <summary>
@@ -202,6 +246,32 @@ namespace COM3D2.MotionTimelineEditor
             catch (Exception e)
             {
                 MTEUtils.LogWarning("InspectorHostClient: InspectorHost への登録に失敗しました: " + e.Message);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// ホストが自前で描く内容 (現状は配置モデル・背景モデル) の末尾へ、固有の行だけを足す登録。
+        /// drawRows は rect の左上から描き、使った高さ (末尾の余白を含まない) を返す。
+        /// 戻り値はハンドル (非対応の旧ホスト・失敗時は null)。解除は Unregister を使う
+        /// </summary>
+        public static object RegisterRows(
+            string name,
+            Func<GameObject, bool> canDraw,
+            Func<GameObject, Rect, float> drawRows)
+        {
+            if (!isAvailable || !isRowsDrawAvailable)
+            {
+                return null;
+            }
+
+            try
+            {
+                return _registerRows(name, canDraw, drawRows);
+            }
+            catch (Exception e)
+            {
+                MTEUtils.LogWarning("InspectorHostClient: InspectorHost への行の登録に失敗しました: " + e.Message);
                 return null;
             }
         }
