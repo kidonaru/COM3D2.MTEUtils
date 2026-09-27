@@ -147,6 +147,46 @@ namespace COM3D2.MotionTimelineEditor.PostEffects
         public Color flareColorD = new Color(0.8f, 0.4f, 0f, 0.75f);
     }
 
+    /// <summary>
+    /// シネマティック被写界深度 (Cinematic Image Effects の DepthOfField を移植したもの)。
+    /// 実体の enum 3 種は PostEffects 側の型なのでここでは持てず、int で受け渡す
+    /// (値の対応は TimelineBridge が変換する)。
+    /// ピント位置の可視化 (デバッグ表示) とボケテクスチャのパス (文字列) は持たない
+    /// (触らない = PostEffects 側 UI の管轄)
+    /// </summary>
+    public class CinematicDepthOfFieldData
+    {
+        public bool enabled = false;
+        // CinematicDepthOfFieldEffect.TweakMode: 0=Range (ピント面と範囲), 1=Explicit (近景・遠景を個別)
+        public int tweakMode = 1;
+        // CinematicDepthOfFieldEffect.QualityPreset: 0=Low, 1=Medium, 2=High
+        public int filteringQuality = 2;
+        // CinematicDepthOfFieldEffect.ApertureShape: 0=Circular, 1=Hexagonal, 2=Octogonal
+        public int apertureShape = 0;
+        public float apertureOrientation = 0f;
+
+        public float focusFocusPlane = 20f;
+        public float focusRange = 35f;
+        public float focusNearPlane = 3f;
+        public float focusNearFalloff = 3f;
+        public float focusFarPlane = 6f;
+        public float focusFarFalloff = 6f;
+        public float focusNearBlurRadius = 18f;
+        public float focusFarBlurRadius = 20f;
+
+        public bool antiFlicker = false;
+        public bool useBokehTexture = false;
+        public float bokehScale = 1f;
+        public float bokehIntensity = 50f;
+        public float bokehThreshold = 2f;
+        public float bokehSpawnHeuristic = 0.15f;
+
+        // メイドの頭にピントを合わせる (ピント面と範囲モードのみ有効)
+        public bool maidFocus = false;
+        // 準備完了メイド一覧の中のインデックス
+        public int maidIndex = 0;
+    }
+
     /// <summary>ポストエフェクト DTO のキーフレーム間補間。enabled 等の非連続値は start 側を採る</summary>
     public static class PostEffectDataLerp
     {

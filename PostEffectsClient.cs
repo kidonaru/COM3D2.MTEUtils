@@ -59,6 +59,10 @@ namespace COM3D2.MotionTimelineEditor
         // 旧版ホストには無い任意メソッド。未定義でも接続自体は有効のまま
         private static Action _showTimelineMode;
 
+        // シネマティック被写界深度も任意メソッド。旧版ホストで欠けていても他の系統は止めない
+        private static Func<object> _getCinematicDepthOfField;
+        private static MethodInfo _applyCinematicDepthOfField;
+
         // Apply 系へ渡すホスト側 DTO のインスタンスを使い回す (毎フレーム生成しない)
         private static object _paraffinArg;
         private static object _distanceFogArg;
@@ -66,6 +70,7 @@ namespace COM3D2.MotionTimelineEditor
         private static object _gtToneMapArg;
         private static object _depthOfFieldArg;
         private static object _bloomArg;
+        private static object _cinematicDepthOfFieldArg;
 
         // MethodInfo.Invoke 用の引数配列も使い回す
         private static readonly object[] _args1 = new object[1];
@@ -84,6 +89,13 @@ namespace COM3D2.MotionTimelineEditor
                 return _getParaffinCount != null;
             }
         }
+
+        /// <summary>
+        /// シネマティック被写界深度の API がホストにあるか。
+        /// 旧版の PostEffects.Plugin では false になるが、他の系統は isAvailable のまま動く
+        /// </summary>
+        public static bool isCinematicDepthOfFieldAvailable =>
+            isAvailable && _cinematicDepthOfFieldArg != null;
 
         private static void Initialize()
         {
@@ -139,6 +151,9 @@ namespace COM3D2.MotionTimelineEditor
                 _applyBloom = type.GetMethod("ApplyBloom", BindingFlags.Public | BindingFlags.Static);
 
                 _showTimelineMode = CreateAction(type, "ShowTimelineMode");
+                _getCinematicDepthOfField = CreateFuncObject(type, "GetCinematicDepthOfField");
+                _applyCinematicDepthOfField = type.GetMethod(
+                    "ApplyCinematicDepthOfField", BindingFlags.Public | BindingFlags.Static);
 
                 if (_getMaxParaffinCount == null || _getMaxDistanceFogCount == null ||
                     _getMaxRimlightCount == null ||
@@ -175,6 +190,22 @@ namespace COM3D2.MotionTimelineEditor
                 WarnUnmappedFields("GTトーンマップ", typeof(PEData.GTToneMapData), _gtToneMapArg);
                 WarnUnmappedFields("被写界深度", typeof(PEData.DepthOfFieldData), _depthOfFieldArg);
                 WarnUnmappedFields("ブルーム", typeof(PEData.BloomData), _bloomArg);
+
+                // 任意メソッドなので、揃っているときだけ引数を用意する
+                if (_getCinematicDepthOfField != null && _applyCinematicDepthOfField != null)
+                {
+                    _cinematicDepthOfFieldArg = Activator.CreateInstance(
+                        _applyCinematicDepthOfField.GetParameters()[0].ParameterType);
+                    WarnUnmappedFields(
+                        "シネマティック被写界深度",
+                        typeof(PEData.CinematicDepthOfFieldData),
+                        _cinematicDepthOfFieldArg);
+                }
+                else
+                {
+                    MTEUtils.LogDebug(
+                        "PostEffectsClient: TimelineBridge にシネマティック被写界深度の API がありません (旧版の PostEffects.Plugin)");
+                }
             }
             catch (Exception e)
             {
@@ -735,6 +766,42 @@ namespace COM3D2.MotionTimelineEditor
             catch (Exception e)
             {
                 LogHostError("ApplyBloom", e);
+            }
+        }
+
+        public static PEData.CinematicDepthOfFieldData GetCinematicDepthOfField()
+        {
+            var dto = new PEData.CinematicDepthOfFieldData();
+            if (!isCinematicDepthOfFieldAvailable)
+            {
+                return dto;
+            }
+            try
+            {
+                ReflectionFieldCopier.Copy(_getCinematicDepthOfField(), dto);
+            }
+            catch (Exception e)
+            {
+                LogHostError("GetCinematicDepthOfField", e);
+            }
+            return dto;
+        }
+
+        public static void ApplyCinematicDepthOfField(PEData.CinematicDepthOfFieldData data)
+        {
+            if (!isCinematicDepthOfFieldAvailable)
+            {
+                return;
+            }
+            try
+            {
+                ReflectionFieldCopier.Copy(data, _cinematicDepthOfFieldArg);
+                _args1[0] = _cinematicDepthOfFieldArg;
+                _applyCinematicDepthOfField.Invoke(null, _args1);
+            }
+            catch (Exception e)
+            {
+                LogHostError("ApplyCinematicDepthOfField", e);
             }
         }
     }
