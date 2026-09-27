@@ -151,9 +151,6 @@ namespace COM3D2.MotionTimelineEditor
                 _applyBloom = type.GetMethod("ApplyBloom", BindingFlags.Public | BindingFlags.Static);
 
                 _showTimelineMode = CreateAction(type, "ShowTimelineMode");
-                _getCinematicDepthOfField = CreateFuncObject(type, "GetCinematicDepthOfField");
-                _applyCinematicDepthOfField = type.GetMethod(
-                    "ApplyCinematicDepthOfField", BindingFlags.Public | BindingFlags.Static);
 
                 if (_getMaxParaffinCount == null || _getMaxDistanceFogCount == null ||
                     _getMaxRimlightCount == null ||
@@ -190,29 +187,58 @@ namespace COM3D2.MotionTimelineEditor
                 WarnUnmappedFields("GTトーンマップ", typeof(PEData.GTToneMapData), _gtToneMapArg);
                 WarnUnmappedFields("被写界深度", typeof(PEData.DepthOfFieldData), _depthOfFieldArg);
                 WarnUnmappedFields("ブルーム", typeof(PEData.BloomData), _bloomArg);
-
-                // 任意メソッドなので、揃っているときだけ引数を用意する
-                if (_getCinematicDepthOfField != null && _applyCinematicDepthOfField != null)
-                {
-                    _cinematicDepthOfFieldArg = Activator.CreateInstance(
-                        _applyCinematicDepthOfField.GetParameters()[0].ParameterType);
-                    WarnUnmappedFields(
-                        "シネマティック被写界深度",
-                        typeof(PEData.CinematicDepthOfFieldData),
-                        _cinematicDepthOfFieldArg);
-                }
-                else
-                {
-                    MTEUtils.LogDebug(
-                        "PostEffectsClient: TimelineBridge にシネマティック被写界深度の API がありません (旧版の PostEffects.Plugin)");
-                }
             }
             catch (Exception e)
             {
                 MTEUtils.LogWarning(
                     "PostEffectsClient: TimelineBridge との接続に失敗しました: " + e.Message);
                 Disable();
+                return;
             }
+
+            InitializeCinematicDepthOfField(type);
+        }
+
+        /// <summary>
+        /// シネマティック被写界深度 (任意メソッド) を解決する。
+        /// 必須系統とは別の try に置き、ここで失敗しても他の系統は止めない
+        /// </summary>
+        private static void InitializeCinematicDepthOfField(Type type)
+        {
+            try
+            {
+                _getCinematicDepthOfField = CreateFuncObject(type, "GetCinematicDepthOfField");
+                _applyCinematicDepthOfField = type.GetMethod(
+                    "ApplyCinematicDepthOfField", BindingFlags.Public | BindingFlags.Static);
+                if (_getCinematicDepthOfField == null || _applyCinematicDepthOfField == null ||
+                    _applyCinematicDepthOfField.GetParameters().Length != 1)
+                {
+                    MTEUtils.LogDebug(
+                        "PostEffectsClient: TimelineBridge にシネマティック被写界深度の API がありません (旧版の PostEffects.Plugin)");
+                    DisableCinematicDepthOfField();
+                    return;
+                }
+
+                _cinematicDepthOfFieldArg = Activator.CreateInstance(
+                    _applyCinematicDepthOfField.GetParameters()[0].ParameterType);
+                WarnUnmappedFields(
+                    "シネマティック被写界深度",
+                    typeof(PEData.CinematicDepthOfFieldData),
+                    _cinematicDepthOfFieldArg);
+            }
+            catch (Exception e)
+            {
+                MTEUtils.LogWarning(
+                    "PostEffectsClient: シネマティック被写界深度の接続に失敗しました: " + e.Message);
+                DisableCinematicDepthOfField();
+            }
+        }
+
+        private static void DisableCinematicDepthOfField()
+        {
+            _getCinematicDepthOfField = null;
+            _applyCinematicDepthOfField = null;
+            _cinematicDepthOfFieldArg = null;
         }
 
         /// <summary>
