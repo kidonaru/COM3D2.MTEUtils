@@ -145,6 +145,15 @@ namespace COM3D2.MotionTimelineEditor
         private const float PlaneFillAlpha = 0.3f;
         /// <summary>面ハンドルの一辺。GizmoRender と同じく軸長の 0.3 倍</summary>
         private const float PlaneSizeRatio = 0.3f;
+        /// <summary>
+        /// カメラ座標系の回転で視線まわりを回す外周リングの半径 (軸長に対する比)。
+        /// 右・上の線 (長さ = 軸長) の端と離して掴み分けられるよう外側に置く
+        /// </summary>
+        private const float ViewRingRadiusRatio = 1.2f;
+        /// <summary>外周リングは全周を描くので半周の倍の分割</summary>
+        private const int FullCircleSegments = CircleSegments * 2;
+        /// <summary>外周リングの色。軸の色と区別するため白にする</summary>
+        private static readonly Color ViewRingColor = new Color(1f, 1f, 1f, 0.8f);
 
         // GL 描画用マテリアルは全インスタンス共有
         private static Material _lineMaterial;
@@ -165,6 +174,13 @@ namespace COM3D2.MotionTimelineEditor
         // ドラッグ開始時の軸方向。Local モードでは軸が target の回転に追従するため、
         // 現在値を使うと回転ドラッグで軸自体が動いてフィードバックし対象が暴れる
         private Vector3 _dragAxisDir;
+        // 面ドラッグの面の法線。軸と同じく開始時に固定する
+        // (カメラ座標系ではドラッグ中にカメラが動くと面が変わってしまうため)
+        private Vector3 _dragPlaneNormal;
+        // 画面上の移動量で回しているか (カメラ座標系の右・上リング)
+        private bool _dragByScreen;
+        private Vector2 _dragStartRtPoint;
+        private float _dragRadiusPixels;
 
         /// <summary>GL 用マテリアルを遅延生成する。シェーダ不在なら false</summary>
         public static bool EnsureMaterial()
@@ -303,25 +319,20 @@ namespace COM3D2.MotionTimelineEditor
             return CalcGizmoSize(camera, position) * sizeScale;
         }
 
-        /// <summary>軸方向 (Local/Global 設定に従う)</summary>
-        private Vector3 AxisDirection(int axis)
+        /// <summary>ツールを考慮した実際の座標系 (拡縮のカメラはローカル)</summary>
+        private GizmoSpace effectiveSpace
         {
-            if (useLocalSpace)
-            {
-                switch (axis)
-                {
-                    case 0: return target.right;
-                    case 1: return target.up;
-                    default: return target.forward;
-                }
-            }
+            get { return ResolveSpace(space, tool); }
+        }
 
-            switch (axis)
-            {
-                case 0: return Vector3.right;
-                case 1: return Vector3.up;
-                default: return Vector3.forward;
-            }
+        /// <summary>
+        /// 今の座標系で使う軸 3 本。Transform のプロパティ取得を軸ごとに繰り返さないよう、
+        /// 描画・判定の入口で 1 回だけ求めて使い回す。カメラ座標系では渡されたカメラの軸
+        /// </summary>
+        private GizmoBasis CurrentAxes(Camera camera)
+        {
+            return SelectBasis(effectiveSpace,
+                GizmoBasis.FromTransform(target), GizmoBasis.FromTransform(camera.transform));
         }
 
         /// <summary>指定カメラの OnPostRender から呼ぶ</summary>
@@ -339,6 +350,8 @@ namespace COM3D2.MotionTimelineEditor
 
             var origin = target.position;
             var size = GizmoSize(camera, origin);
+            var drawSpace = effectiveSpace;
+            var axes = CurrentAxes(camera);
 
             switch (tool)
             {
@@ -348,19 +361,33 @@ namespace COM3D2.MotionTimelineEditor
                     var isScale = tool == GizmoTool.Scale;
                     for (var axis = 0; axis < 3; axis++)
                     {
-                        DrawAxisLine(origin, AxisDirection(axis), size, AxisColor(axis), isScale);
+                        if (IsAxisHandleEnabled(drawSpace, axis))
+                        {
+                            DrawAxisLine(origin, axes[axis], size, AxisColor(axis), isScale);
+                        }
                     }
                     // 2 軸を同時に動かす面ハンドル。移動は四角、拡縮は三角で GizmoRender と揃える
                     for (var axis = 0; axis < 3; axis++)
                     {
-                        DrawPlaneHandle(origin, axis, size * PlaneSizeRatio, PlaneColor(axis), isScale);
+                        if (IsPlaneHandleEnabled(drawSpace, axis))
+                        {
+                            DrawPlaneHandle(origin, axes, axis, size * PlaneSizeRatio, PlaneColor(axis), isScale);
+                        }
                     }
                     break;
                 }
                 case GizmoTool.Rotate:
                     for (var axis = 0; axis < 3; axis++)
                     {
-                        DrawCircle(camera, origin, AxisDirection(axis), size, AxisColor(axis));
+                        if (IsViewRing(drawSpace, axis))
+                        {
+                            DrawFullCircle(origin, axes[axis], size * ViewRingRadiusRatio, ViewRingDrawColor(axis));
+                        }
+                        else
+                        {
+                            // カメラ座標系の右・上リングは視線を含む面にあり、画面上では線として描かれる
+                            DrawCircle(camera, origin, axes[axis], size, AxisColor(axis));
+                        }
                     }
                     break;
             }
@@ -380,21 +407,28 @@ namespace COM3D2.MotionTimelineEditor
             return isDragging && _dragPlane == normalAxis ? SelectedPlaneColor : AxisColors[normalAxis];
         }
 
-        /// <summary>面ハンドルを張る 2 軸。法線の軸以外の 2 本を使う</summary>
-        private void PlaneAxes(int normalAxis, out Vector3 u, out Vector3 v)
+        /// <summary>外周リングの色。掴んでいる間は軸と同じ選択色にする</summary>
+        private Color ViewRingDrawColor(int axis)
         {
-            u = AxisDirection((normalAxis + 1) % 3);
-            v = AxisDirection((normalAxis + 2) % 3);
+            return isDragging && _dragAxis == axis ? SelectedAxisColor : ViewRingColor;
+        }
+
+        /// <summary>面ハンドルを張る 2 軸。法線の軸以外の 2 本を使う</summary>
+        private static void PlaneAxes(GizmoBasis axes, int normalAxis, out Vector3 u, out Vector3 v)
+        {
+            u = axes[(normalAxis + 1) % 3];
+            v = axes[(normalAxis + 2) % 3];
         }
 
         /// <summary>
         /// 2 軸を同時に動かす面ハンドル。半透明で塗ったうえで輪郭を描く
         /// (GizmoRender の DrawQuad / DrawTri と同じ見た目)
         /// </summary>
-        private void DrawPlaneHandle(Vector3 origin, int normalAxis, float size, Color color, bool triangle)
+        private void DrawPlaneHandle(
+            Vector3 origin, GizmoBasis axes, int normalAxis, float size, Color color, bool triangle)
         {
             Vector3 u, v;
-            PlaneAxes(normalAxis, out u, out v);
+            PlaneAxes(axes, normalAxis, out u, out v);
 
             var a = origin;
             var b = origin + u * size;
@@ -526,6 +560,24 @@ namespace COM3D2.MotionTimelineEditor
             GL.End();
         }
 
+        /// <summary>画面に正対する外周リング。手前・奥の区別が無いので全周を描く</summary>
+        private static void DrawFullCircle(Vector3 center, Vector3 axis, float radius, Color color)
+        {
+            Vector3 basis1, basis2;
+            CalcCircleBasis(axis, out basis1, out basis2);
+            basis1 *= radius;
+            basis2 *= radius;
+
+            GL.Begin(GL.LINES);
+            GL.Color(color);
+            for (var i = 0; i < FullCircleSegments; i++)
+            {
+                GL.Vertex(ArcPoint(center, basis1, basis2, ArcAngle(i)));
+                GL.Vertex(ArcPoint(center, basis1, basis2, ArcAngle(i + 1)));
+            }
+            GL.End();
+        }
+
         /// <summary>
         /// 手前側の半周を張る基底 (長さは radius 込み)。
         /// 軸に垂直かつカメラ方向に依存した基底を取ると、角度 0〜π がそのまま手前側になる。
@@ -596,6 +648,8 @@ namespace COM3D2.MotionTimelineEditor
 
             var origin = target.position;
             var size = GizmoSize(camera, origin);
+            var dragSpace = effectiveSpace;
+            var axes = CurrentAxes(camera);
 
             // 面ハンドルを先に見る。面の 2 辺は軸線と重なっているため、
             // 軸を優先すると四角形の内側でも軸を掴んでしまう
@@ -604,7 +658,11 @@ namespace COM3D2.MotionTimelineEditor
             {
                 for (var axis = 0; axis < 3; axis++)
                 {
-                    if (IsInsidePlaneHandle(camera, rtPoint, origin, axis, size * PlaneSizeRatio,
+                    if (!IsPlaneHandleEnabled(dragSpace, axis))
+                    {
+                        continue;
+                    }
+                    if (IsInsidePlaneHandle(camera, rtPoint, origin, axes, axis, size * PlaneSizeRatio,
                         tool == GizmoTool.Scale))
                     {
                         bestPlane = axis;
@@ -621,22 +679,40 @@ namespace COM3D2.MotionTimelineEditor
                 for (var axis = 0; axis < 3; axis++)
                 {
                     float distance;
+                    var axisDir = axes[axis];
                     if (tool == GizmoTool.Rotate)
                     {
-                        var axisDir = AxisDirection(axis);
-                        // 視線と平行に近い回転面は角度が安定しないので候補から外す。
-                        // ここで弾いておけば手前に見えている別の軸を掴める
-                        if (!IsRotationPlaneStable(RayDirection(camera, rtPoint), axisDir))
+                        if (IsViewRing(dragSpace, axis))
                         {
-                            continue;
+                            distance = DistanceToFullCircle(
+                                camera, rtPoint, origin, axisDir, size * ViewRingRadiusRatio);
                         }
-                        distance = DistanceToCircle(camera, rtPoint, origin, axisDir, size);
+                        else if (IsScreenDragRing(dragSpace, axis))
+                        {
+                            // 視線を含む面のリングは線に潰れて描かれる。面の角度は取れないが
+                            // 画面上の移動量で回すので、描かれた線そのものを掴ませる
+                            distance = DistanceToCircle(camera, rtPoint, origin, axisDir, size);
+                        }
+                        else
+                        {
+                            // 視線と平行に近い回転面は角度が安定しないので候補から外す。
+                            // ここで弾いておけば手前に見えている別の軸を掴める
+                            if (!IsRotationPlaneStable(RayDirection(camera, rtPoint), axisDir))
+                            {
+                                continue;
+                            }
+                            distance = DistanceToCircle(camera, rtPoint, origin, axisDir, size);
+                        }
                     }
                     else
                     {
+                        if (!IsAxisHandleEnabled(dragSpace, axis))
+                        {
+                            continue;
+                        }
                         bool v0, v1;
                         var a = ToRtPoint(camera, origin, out v0);
-                        var b = ToRtPoint(camera, origin + AxisDirection(axis) * size, out v1);
+                        var b = ToRtPoint(camera, origin + axisDir * size, out v1);
                         distance = (v0 && v1) ? DistanceToSegment(rtPoint, a, b) : float.MaxValue;
                     }
 
@@ -658,8 +734,11 @@ namespace COM3D2.MotionTimelineEditor
             _dragCamera = camera;
             _dragAxis = bestAxis;
             _dragPlane = bestPlane;
-            // 面ドラッグ (bestAxis < 0) は軸方向を使う経路を通らないため zero でよい
-            _dragAxisDir = bestAxis >= 0 ? AxisDirection(bestAxis) : Vector3.zero;
+            // 軸・面の法線は開始時に固定する。Local では回転ドラッグで軸自体が動き、
+            // Camera ではドラッグ中のカメラ移動で軸が変わるため、現在値を使うと対象が暴れる
+            _dragAxisDir = bestAxis >= 0 ? axes[bestAxis] : Vector3.zero;
+            _dragPlaneNormal = bestPlane >= 0 ? axes[bestPlane] : Vector3.zero;
+            _dragByScreen = tool == GizmoTool.Rotate && bestAxis >= 0 && IsScreenDragRing(dragSpace, bestAxis);
             _dragStartPosition = target.position;
             _dragStartRotation = target.rotation;
             _dragStartScale = target.localScale;
@@ -668,7 +747,22 @@ namespace COM3D2.MotionTimelineEditor
             {
                 // 視線と面がほぼ平行だと交点が取れない。基準点が定まらないまま
                 // ドラッグを始めると前回の残留値を基準にして対象が飛ぶため、掴まない
-                if (!PlanePointAt(camera, rtPoint, bestPlane, out _dragStartPlanePoint))
+                if (!PlanePointAt(camera, rtPoint, out _dragStartPlanePoint))
+                {
+                    EndDrag();
+                    return false;
+                }
+            }
+            else if (_dragByScreen)
+            {
+                _dragStartRtPoint = rtPoint;
+                _dragRadiusPixels = ScreenLength(camera, origin, size);
+            }
+            else if (tool == GizmoTool.Rotate)
+            {
+                // 開始角が取れないまま掴むと、最初の更新で角度差が丸ごとズレて
+                // 対象が飛ぶ。面ドラッグと同じく掴まないことで防ぐ
+                if (!TryRotationAngleAt(camera, rtPoint, out _dragStartParam))
                 {
                     EndDrag();
                     return false;
@@ -676,30 +770,18 @@ namespace COM3D2.MotionTimelineEditor
             }
             else
             {
-                if (tool == GizmoTool.Rotate)
-                {
-                    // 開始角が取れないまま掴むと、最初の更新で角度差が丸ごとズレて
-                    // 対象が飛ぶ。面ドラッグと同じく掴まないことで防ぐ
-                    if (!TryRotationAngleAt(camera, rtPoint, out _dragStartParam))
-                    {
-                        EndDrag();
-                        return false;
-                    }
-                }
-                else
-                {
-                    _dragStartParam = AxisParamAt(camera, rtPoint);
-                }
+                _dragStartParam = AxisParamAt(camera, rtPoint);
             }
             return true;
         }
 
         /// <summary>rtPoint が面ハンドルの内側か。画面へ投影した多角形で判定する</summary>
         private bool IsInsidePlaneHandle(
-            Camera camera, Vector2 rtPoint, Vector3 origin, int normalAxis, float size, bool triangle)
+            Camera camera, Vector2 rtPoint, Vector3 origin, GizmoBasis axes, int normalAxis, float size,
+            bool triangle)
         {
             Vector3 u, v;
-            PlaneAxes(normalAxis, out u, out v);
+            PlaneAxes(axes, normalAxis, out u, out v);
 
             bool va, vb, vc, vd;
             var a = ToRtPoint(camera, origin, out va);
@@ -736,10 +818,10 @@ namespace COM3D2.MotionTimelineEditor
             return a.x * b.y - a.y * b.x;
         }
 
-        /// <summary>マウスレイと操作面の交点。面と平行で交わらなければ false</summary>
-        private bool PlanePointAt(Camera camera, Vector2 rtPoint, int normalAxis, out Vector3 point)
+        /// <summary>マウスレイと操作面 (開始時に固定した法線) の交点。面と平行で交わらなければ false</summary>
+        private bool PlanePointAt(Camera camera, Vector2 rtPoint, out Vector3 point)
         {
-            var plane = new Plane(AxisDirection(normalAxis), _dragStartPosition);
+            var plane = new Plane(_dragPlaneNormal, _dragStartPosition);
             var ray = camera.ScreenPointToRay(new Vector3(rtPoint.x, rtPoint.y, 0f));
 
             float enter;
@@ -775,6 +857,41 @@ namespace COM3D2.MotionTimelineEditor
                 }
             }
             return best;
+        }
+
+        /// <summary>外周リング (全周) までの画面距離。描画と同じ全周で判定する</summary>
+        private float DistanceToFullCircle(
+            Camera camera, Vector2 rtPoint, Vector3 center, Vector3 axis, float radius)
+        {
+            Vector3 basis1, basis2;
+            CalcCircleBasis(axis, out basis1, out basis2);
+            basis1 *= radius;
+            basis2 *= radius;
+
+            var best = float.MaxValue;
+            for (var i = 0; i < FullCircleSegments; i++)
+            {
+                bool v0, v1;
+                var p0 = ToRtPoint(camera, ArcPoint(center, basis1, basis2, ArcAngle(i)), out v0);
+                var p1 = ToRtPoint(camera, ArcPoint(center, basis1, basis2, ArcAngle(i + 1)), out v1);
+                if (v0 && v1)
+                {
+                    best = Mathf.Min(best, DistanceToSegment(rtPoint, p0, p1));
+                }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// 対象位置での長さ length の画面上のピクセル長。画面に平行な方向 (カメラの上) で測る。
+        /// カメラの背後なら 0 (CalcScreenDragAngle 側で下限に丸める)
+        /// </summary>
+        private static float ScreenLength(Camera camera, Vector3 origin, float length)
+        {
+            bool v0, v1;
+            var a = ToRtPoint(camera, origin, out v0);
+            var b = ToRtPoint(camera, origin + camera.transform.up * length, out v1);
+            return v0 && v1 ? Vector2.Distance(a, b) : 0f;
         }
 
         /// <summary>マウスレイとドラッグ軸の最近接パラメータ (軸方向の距離 m)</summary>
@@ -868,6 +985,12 @@ namespace COM3D2.MotionTimelineEditor
                 }
                 case GizmoTool.Rotate:
                 {
+                    if (_dragByScreen)
+                    {
+                        var angle = CalcScreenDragAngle(_dragAxis, rtPoint - _dragStartRtPoint, _dragRadiusPixels);
+                        target.rotation = Quaternion.AngleAxis(angle, _dragAxisDir) * _dragStartRotation;
+                        break;
+                    }
                     float current;
                     // 面から外れたフレームは角度が取れない。据え置いて次のフレームを待つ
                     if (!TryRotationAngleAt(_dragCamera, rtPoint, out current))
@@ -900,7 +1023,7 @@ namespace COM3D2.MotionTimelineEditor
         private void UpdatePlaneDrag(Vector2 rtPoint)
         {
             Vector3 point;
-            if (!PlanePointAt(_dragCamera, rtPoint, _dragPlane, out point))
+            if (!PlanePointAt(_dragCamera, rtPoint, out point))
             {
                 return;
             }
@@ -942,6 +1065,7 @@ namespace COM3D2.MotionTimelineEditor
             _dragCamera = null;
             _dragAxis = -1;
             _dragPlane = -1;
+            _dragByScreen = false;
         }
     }
 }
