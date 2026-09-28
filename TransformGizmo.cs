@@ -179,8 +179,10 @@ namespace COM3D2.MotionTimelineEditor
         private Vector3 _dragPlaneNormal;
         // 画面上の移動量で回しているか (カメラ座標系の右・上リング)
         private bool _dragByScreen;
-        private Vector2 _dragStartRtPoint;
-        private float _dragRadiusPixels;
+        private Vector2 _dragStartRtPoint;  // 画面ドラッグ開始時の RT 座標
+        private float _dragRadiusPixels;    // 画面ドラッグのリング半径 (px)
+        // ドラッグ開始時の軸 3 本。カメラ座標系の描画に使う
+        private GizmoBasis _dragBasis;
 
         /// <summary>GL 用マテリアルを遅延生成する。シェーダ不在なら false</summary>
         public static bool EnsureMaterial()
@@ -331,8 +333,26 @@ namespace COM3D2.MotionTimelineEditor
         /// </summary>
         private GizmoBasis CurrentAxes(Camera camera)
         {
-            return SelectBasis(effectiveSpace,
-                GizmoBasis.FromTransform(target), GizmoBasis.FromTransform(camera.transform));
+            // SelectBasis と同じ選び方。両方の基底を渡すと使わない側の Transform まで毎回読むため分岐する
+            switch (effectiveSpace)
+            {
+                case GizmoSpace.Local: return GizmoBasis.FromTransform(target);
+                case GizmoSpace.Camera: return GizmoBasis.FromTransform(camera.transform);
+                default: return GizmoBasis.world;
+            }
+        }
+
+        /// <summary>
+        /// 描画に使う軸 3 本。カメラ座標系で掴んでいる間は、操作と同じく開始時の軸で描く
+        /// (ドラッグ中にカメラが動いたとき、描いた矢印と実際に動く向きが食い違わないように)
+        /// </summary>
+        private GizmoBasis DrawAxes(Camera camera)
+        {
+            if (isDragging && camera == _dragCamera && effectiveSpace == GizmoSpace.Camera)
+            {
+                return _dragBasis;
+            }
+            return CurrentAxes(camera);
         }
 
         /// <summary>指定カメラの OnPostRender から呼ぶ</summary>
@@ -351,7 +371,7 @@ namespace COM3D2.MotionTimelineEditor
             var origin = target.position;
             var size = GizmoSize(camera, origin);
             var drawSpace = effectiveSpace;
-            var axes = CurrentAxes(camera);
+            var axes = DrawAxes(camera);
 
             switch (tool)
             {
@@ -549,10 +569,15 @@ namespace COM3D2.MotionTimelineEditor
         {
             Vector3 basis1, basis2;
             CalcVisibleArcBasis(camera, center, axis, radius, out basis1, out basis2);
+            DrawArc(center, basis1, basis2, CircleSegments, color);
+        }
 
+        /// <summary>basis1 / basis2 が張る円を segments 分割ぶん線で描く (半周か全周かは分割数で決まる)</summary>
+        private static void DrawArc(Vector3 center, Vector3 basis1, Vector3 basis2, int segments, Color color)
+        {
             GL.Begin(GL.LINES);
             GL.Color(color);
-            for (var i = 0; i < CircleSegments; i++)
+            for (var i = 0; i < segments; i++)
             {
                 GL.Vertex(ArcPoint(center, basis1, basis2, ArcAngle(i)));
                 GL.Vertex(ArcPoint(center, basis1, basis2, ArcAngle(i + 1)));
@@ -565,17 +590,7 @@ namespace COM3D2.MotionTimelineEditor
         {
             Vector3 basis1, basis2;
             CalcCircleBasis(axis, out basis1, out basis2);
-            basis1 *= radius;
-            basis2 *= radius;
-
-            GL.Begin(GL.LINES);
-            GL.Color(color);
-            for (var i = 0; i < FullCircleSegments; i++)
-            {
-                GL.Vertex(ArcPoint(center, basis1, basis2, ArcAngle(i)));
-                GL.Vertex(ArcPoint(center, basis1, basis2, ArcAngle(i + 1)));
-            }
-            GL.End();
+            DrawArc(center, basis1 * radius, basis2 * radius, FullCircleSegments, color);
         }
 
         /// <summary>
@@ -682,27 +697,7 @@ namespace COM3D2.MotionTimelineEditor
                     var axisDir = axes[axis];
                     if (tool == GizmoTool.Rotate)
                     {
-                        if (IsViewRing(dragSpace, axis))
-                        {
-                            distance = DistanceToFullCircle(
-                                camera, rtPoint, origin, axisDir, size * ViewRingRadiusRatio);
-                        }
-                        else if (IsScreenDragRing(dragSpace, axis))
-                        {
-                            // 視線を含む面のリングは線に潰れて描かれる。面の角度は取れないが
-                            // 画面上の移動量で回すので、描かれた線そのものを掴ませる
-                            distance = DistanceToCircle(camera, rtPoint, origin, axisDir, size);
-                        }
-                        else
-                        {
-                            // 視線と平行に近い回転面は角度が安定しないので候補から外す。
-                            // ここで弾いておけば手前に見えている別の軸を掴める
-                            if (!IsRotationPlaneStable(RayDirection(camera, rtPoint), axisDir))
-                            {
-                                continue;
-                            }
-                            distance = DistanceToCircle(camera, rtPoint, origin, axisDir, size);
-                        }
+                        distance = DistanceToRotateHandle(camera, rtPoint, dragSpace, axis, origin, axisDir, size);
                     }
                     else
                     {
@@ -738,6 +733,7 @@ namespace COM3D2.MotionTimelineEditor
             // Camera ではドラッグ中のカメラ移動で軸が変わるため、現在値を使うと対象が暴れる
             _dragAxisDir = bestAxis >= 0 ? axes[bestAxis] : Vector3.zero;
             _dragPlaneNormal = bestPlane >= 0 ? axes[bestPlane] : Vector3.zero;
+            _dragBasis = axes;
             _dragByScreen = tool == GizmoTool.Rotate && bestAxis >= 0 && IsScreenDragRing(dragSpace, bestAxis);
             _dragStartPosition = target.position;
             _dragStartRotation = target.rotation;
@@ -757,6 +753,12 @@ namespace COM3D2.MotionTimelineEditor
             {
                 _dragStartRtPoint = rtPoint;
                 _dragRadiusPixels = ScreenLength(camera, origin, size);
+                // 原点がカメラの背後などで半径が取れないと、わずかな移動で大きく回ってしまう
+                if (_dragRadiusPixels <= 0f)
+                {
+                    EndDrag();
+                    return false;
+                }
             }
             else if (tool == GizmoTool.Rotate)
             {
@@ -773,6 +775,31 @@ namespace COM3D2.MotionTimelineEditor
                 _dragStartParam = AxisParamAt(camera, rtPoint);
             }
             return true;
+        }
+
+        /// <summary>
+        /// 回転ハンドル (リング) までの画面距離。掴めないリングは float.MaxValue
+        /// </summary>
+        private float DistanceToRotateHandle(
+            Camera camera, Vector2 rtPoint, GizmoSpace dragSpace, int axis, Vector3 origin, Vector3 axisDir, float size)
+        {
+            if (IsViewRing(dragSpace, axis))
+            {
+                return DistanceToFullCircle(camera, rtPoint, origin, axisDir, size * ViewRingRadiusRatio);
+            }
+            if (IsScreenDragRing(dragSpace, axis))
+            {
+                // 視線を含む面のリングは線に潰れて描かれる。面の角度は取れないが
+                // 画面上の移動量で回すので、描かれた線そのものを掴ませる
+                return DistanceToCircle(camera, rtPoint, origin, axisDir, size);
+            }
+            // 視線と平行に近い回転面は角度が安定しないので候補から外す。
+            // ここで弾いておけば手前に見えている別の軸を掴める
+            if (!IsRotationPlaneStable(RayDirection(camera, rtPoint), axisDir))
+            {
+                return float.MaxValue;
+            }
+            return DistanceToCircle(camera, rtPoint, origin, axisDir, size);
         }
 
         /// <summary>rtPoint が面ハンドルの内側か。画面へ投影した多角形で判定する</summary>
@@ -844,9 +871,15 @@ namespace COM3D2.MotionTimelineEditor
         {
             Vector3 basis1, basis2;
             CalcVisibleArcBasis(camera, center, axis, radius, out basis1, out basis2);
+            return DistanceToArc(camera, rtPoint, center, basis1, basis2, CircleSegments);
+        }
 
+        /// <summary>DrawArc と同じ弧までの画面距離。カメラの背後にかかる線分は見ない</summary>
+        private static float DistanceToArc(
+            Camera camera, Vector2 rtPoint, Vector3 center, Vector3 basis1, Vector3 basis2, int segments)
+        {
             var best = float.MaxValue;
-            for (var i = 0; i < CircleSegments; i++)
+            for (var i = 0; i < segments; i++)
             {
                 bool v0, v1;
                 var p0 = ToRtPoint(camera, ArcPoint(center, basis1, basis2, ArcAngle(i)), out v0);
@@ -865,21 +898,7 @@ namespace COM3D2.MotionTimelineEditor
         {
             Vector3 basis1, basis2;
             CalcCircleBasis(axis, out basis1, out basis2);
-            basis1 *= radius;
-            basis2 *= radius;
-
-            var best = float.MaxValue;
-            for (var i = 0; i < FullCircleSegments; i++)
-            {
-                bool v0, v1;
-                var p0 = ToRtPoint(camera, ArcPoint(center, basis1, basis2, ArcAngle(i)), out v0);
-                var p1 = ToRtPoint(camera, ArcPoint(center, basis1, basis2, ArcAngle(i + 1)), out v1);
-                if (v0 && v1)
-                {
-                    best = Mathf.Min(best, DistanceToSegment(rtPoint, p0, p1));
-                }
-            }
-            return best;
+            return DistanceToArc(camera, rtPoint, center, basis1 * radius, basis2 * radius, FullCircleSegments);
         }
 
         /// <summary>
