@@ -20,6 +20,53 @@ namespace COM3D2.MotionTimelineEditor
         Selected,
     }
 
+    /// <summary>ギズモの軸の座標系</summary>
+    public enum GizmoSpace
+    {
+        /// <summary>対象の回転に沿った軸</summary>
+        Local,
+        /// <summary>ワールド軸</summary>
+        Global,
+        /// <summary>ギズモを描いている (掴んだ) カメラの右・上・前</summary>
+        Camera,
+    }
+
+    /// <summary>ギズモの軸 3 本の組。軸番号 0 / 1 / 2 = 右 / 上 / 前</summary>
+    public struct GizmoBasis
+    {
+        public Vector3 right;
+        public Vector3 up;
+        public Vector3 forward;
+
+        public static readonly GizmoBasis world =
+            new GizmoBasis(Vector3.right, Vector3.up, Vector3.forward);
+
+        public GizmoBasis(Vector3 right, Vector3 up, Vector3 forward)
+        {
+            this.right = right;
+            this.up = up;
+            this.forward = forward;
+        }
+
+        public static GizmoBasis FromTransform(Transform t)
+        {
+            return new GizmoBasis(t.right, t.up, t.forward);
+        }
+
+        public Vector3 this[int axis]
+        {
+            get
+            {
+                switch (axis)
+                {
+                    case 0: return right;
+                    case 1: return up;
+                    default: return forward;
+                }
+            }
+        }
+    }
+
     /// <summary>
     /// カメラ非依存の Transform 操作ギズモ。
     /// 任意カメラの OnPostRender から Draw し、そのカメラの RT ピクセル座標で
@@ -31,7 +78,25 @@ namespace COM3D2.MotionTimelineEditor
     {
         public Transform target;
         public GizmoTool tool = GizmoTool.Move;
-        public bool useLocalSpace = true;
+        public GizmoSpace space = GizmoSpace.Local;
+
+        /// <summary>
+        /// 旧 API との互換用の bool 表現 (true = Local)。ModItemExplorer など 2 値で扱う利用側向け。
+        /// Camera は Local ではないので false を返す。false の代入では Camera を保つ
+        /// (bool しか知らない側は Global と Camera を区別できず、同期のたびに Camera が消えるため)
+        /// </summary>
+        public bool useLocalSpace
+        {
+            get { return space == GizmoSpace.Local; }
+            set
+            {
+                if (value == useLocalSpace)
+                {
+                    return;
+                }
+                space = value ? GizmoSpace.Local : GizmoSpace.Global;
+            }
+        }
         /// <summary>表示倍率。配置モデル用に小さくする場合などに使う</summary>
         public float sizeScale = 1f;
         /// <summary>ドラッグで target を書き換えた直後に呼ばれる</summary>
@@ -152,6 +217,85 @@ namespace COM3D2.MotionTimelineEditor
         public static float CalcGizmoSizeFromHalfHeight(float halfHeight)
         {
             return halfHeight * GizmoScreenScale / Mathf.Tan(ReferenceFov * 0.5f * Mathf.Deg2Rad);
+        }
+
+        /// <summary>カメラ座標系で視線方向になる軸の番号 (前)</summary>
+        public const int ViewAxis = 2;
+
+        /// <summary>画面ドラッグ角の換算で、画面上の半径がこれより小さいときの下限 (px)。0 除算を避ける</summary>
+        private const float MinScreenRadiusPixels = 1f;
+
+        /// <summary>
+        /// ツールに対して実際に使う座標系。拡縮は localScale をローカル軸で伸ばすだけなので、
+        /// カメラ軸で描くと見た目の軸と伸びる方向が食い違う。カメラ指定でもローカルで動かす
+        /// </summary>
+        public static GizmoSpace ResolveSpace(GizmoSpace space, GizmoTool tool)
+        {
+            if (space == GizmoSpace.Camera && tool == GizmoTool.Scale)
+            {
+                return GizmoSpace.Local;
+            }
+            return space;
+        }
+
+        /// <summary>座標系に応じた軸 3 本。Global はワールド軸で、local / camera は使わない</summary>
+        public static GizmoBasis SelectBasis(GizmoSpace space, GizmoBasis local, GizmoBasis camera)
+        {
+            switch (space)
+            {
+                case GizmoSpace.Local: return local;
+                case GizmoSpace.Camera: return camera;
+                default: return GizmoBasis.world;
+            }
+        }
+
+        /// <summary>
+        /// 軸ハンドル (移動・拡縮の矢印) を出すか。カメラ座標系の前軸は視線と重なって
+        /// 画面上で点に潰れ、掴むと奥行きが大きく飛ぶため出さない
+        /// </summary>
+        public static bool IsAxisHandleEnabled(GizmoSpace space, int axis)
+        {
+            return space != GizmoSpace.Camera || axis != ViewAxis;
+        }
+
+        /// <summary>
+        /// 面ハンドルを出すか。カメラ座標系では画面に平行な面 (法線が前軸) 以外は
+        /// 視線を含んで線に潰れ、中心付近のクリックを奪うため出さない
+        /// </summary>
+        public static bool IsPlaneHandleEnabled(GizmoSpace space, int normalAxis)
+        {
+            return space != GizmoSpace.Camera || normalAxis == ViewAxis;
+        }
+
+        /// <summary>回転ツールで、画面に正対する外周リングとして描く軸か (カメラ座標系の前軸)</summary>
+        public static bool IsViewRing(GizmoSpace space, int axis)
+        {
+            return space == GizmoSpace.Camera && axis == ViewAxis;
+        }
+
+        /// <summary>
+        /// 回転ツールで、面との交点ではなく画面上の移動量で回す軸か (カメラ座標系の右・上)。
+        /// このリングは視線を含む面にあり、画面上で線に潰れて角度が取れない
+        /// </summary>
+        public static bool IsScreenDragRing(GizmoSpace space, int axis)
+        {
+            return space == GizmoSpace.Camera && axis != ViewAxis;
+        }
+
+        /// <summary>
+        /// カメラ座標系の右・上軸まわりのリングを画面ドラッグで回す角度 (度)。
+        /// トラックボールと同じく、リングの手前側がマウスに付いて動く向きに回し、半径ぶん動かすと 1 rad。
+        /// 回転の微分は「軸 × 点」で、手前側の点はカメラの後ろ向きにあるため、
+        /// 右軸の正回転は手前側を画面の上へ、上軸の正回転は画面の左へ動かす
+        /// </summary>
+        /// <param name="axis">0 = 右、1 = 上</param>
+        /// <param name="delta">ドラッグ開始からの RT ピクセル移動量 (左下原点)</param>
+        /// <param name="radiusPixels">リング半径の画面上の長さ</param>
+        public static float CalcScreenDragAngle(int axis, Vector2 delta, float radiusPixels)
+        {
+            var radius = Mathf.Max(radiusPixels, MinScreenRadiusPixels);
+            var along = axis == 0 ? delta.y : -delta.x;
+            return along / radius * Mathf.Rad2Deg;
         }
 
         private float GizmoSize(Camera camera, Vector3 position)
