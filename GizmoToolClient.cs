@@ -73,6 +73,8 @@ namespace COM3D2.MotionTimelineEditor
 
         /// <summary>
         /// SceneEditor 側のギズモ軸空間 (true = Local)。取得失敗時は SceneEditor の既定と同じ true。
+        /// SceneEditor 側が Camera 座標系のときは false (Global と同じ扱い) を返し、
+        /// false を書き込んでも Camera は保たれる。3 値の座標系は同期しない。
         /// 失敗時の扱いは tool と同じ (isAvailable で判別する)
         /// </summary>
         public static bool useLocalSpace

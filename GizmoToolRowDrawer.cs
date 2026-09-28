@@ -15,12 +15,21 @@ namespace COM3D2.MotionTimelineEditor
         public Action<GizmoTool> setTool;
         public Func<bool> getUseLocalSpace;
         public Action<bool> setUseLocalSpace;
+        /// <summary>
+        /// 3 値の座標系 (Local / Global / Camera) の取得・変更。両方設定されていれば軸空間ボタンは
+        /// 3 値の巡回になり、getUseLocalSpace / setUseLocalSpace は使わない。
+        /// 設定しない利用側 (ModItemExplorer 等) は従来の Local / Global トグルのまま
+        /// </summary>
+        public Func<GizmoSpace> getSpace;
+        public Action<GizmoSpace> setSpace;
         /// <summary>軸空間ボタンのワールドアイコン。null ならテキスト表示にフォールバックする</summary>
         public Texture2D globalIcon;
+        /// <summary>Camera のときのアイコン。null なら globalIcon を点灯表示する</summary>
+        public Texture2D cameraIcon;
     }
 
     /// <summary>
-    /// ギズモの操作種別 (なし/移動/回転/拡縮) と軸空間 (Local/Global) の切替行。
+    /// ギズモの操作種別 (なし/移動/回転/拡縮) と軸空間 (Local/Global、3 値の口があれば Camera も) の切替行。
     /// SceneEditor の Inspector と MTE のモデル操作ウィンドウで共通に使う
     /// </summary>
     public static class GizmoToolRowDrawer
@@ -64,12 +73,18 @@ namespace COM3D2.MotionTimelineEditor
         }
 
         /// <summary>
-        /// 軸空間 (Local/Global) の切替ボタン 1 個。ワールドアイコンのトグルで表し、
-        /// Global のときだけ点灯させる。SceneView のツールバーからも単体で使う。
-        /// アイコンを読み込めなかったときはテキスト表示にフォールバックする
+        /// 軸空間の切替ボタン 1 個。3 値の口 (getSpace / setSpace) があれば Local → Global → Camera の巡回、
+        /// 無ければ Local / Global のトグル。ワールドアイコンのトグルで表し、Local 以外のとき点灯させる。
+        /// SceneView のツールバーからも単体で使う。アイコンを読み込めなかったときはテキスト表示にフォールバックする
         /// </summary>
         public static void DrawSpaceButton(GUIView view, GizmoToolRowOption option, float height)
         {
+            if (option.getSpace != null && option.setSpace != null)
+            {
+                DrawSpaceCycleButton(view, option, height);
+                return;
+            }
+
             var useLocalSpace = option.getUseLocalSpace();
 
             if (option.globalIcon != null)
@@ -81,6 +96,53 @@ namespace COM3D2.MotionTimelineEditor
             else if (view.DrawButton(useLocalSpace ? "Local" : "Global", SpaceButtonWidth, height))
             {
                 option.setUseLocalSpace(!useLocalSpace);
+            }
+        }
+
+        /// <summary>
+        /// 押すたびに Local → Global → Camera → Local と巡回させる。
+        /// Local 以外を点灯し、Camera はアイコンを替えて Global と見分ける
+        /// </summary>
+        private static void DrawSpaceCycleButton(GUIView view, GizmoToolRowOption option, float height)
+        {
+            var space = option.getSpace();
+            var next = NextSpace(space);
+
+            if (option.globalIcon != null)
+            {
+                var icon = space == GizmoSpace.Camera && option.cameraIcon != null
+                    ? option.cameraIcon
+                    : option.globalIcon;
+                // トグルはクリックのたびに値が反転して onChanged が呼ばれる。
+                // 反転後の値は使わず、次の座標系へ進める
+                view.DrawToggle(icon, space != GizmoSpace.Local, height, height,
+                    _ => option.setSpace(next), SpaceIconOffset, "座標系: " + GetSpaceName(space));
+            }
+            else if (view.DrawButton(GetSpaceName(space), SpaceButtonWidth, height))
+            {
+                option.setSpace(next);
+            }
+        }
+
+        /// <summary>軸空間ボタンを押したときの次の座標系</summary>
+        public static GizmoSpace NextSpace(GizmoSpace space)
+        {
+            switch (space)
+            {
+                case GizmoSpace.Local: return GizmoSpace.Global;
+                case GizmoSpace.Global: return GizmoSpace.Camera;
+                default: return GizmoSpace.Local;
+            }
+        }
+
+        /// <summary>ボタンとツールチップに出す座標系の名前</summary>
+        public static string GetSpaceName(GizmoSpace space)
+        {
+            switch (space)
+            {
+                case GizmoSpace.Local: return "Local";
+                case GizmoSpace.Global: return "Global";
+                default: return "Camera";
             }
         }
     }
