@@ -2050,6 +2050,9 @@ namespace COM3D2.MotionTimelineEditor
         /// </summary>
         private static float _intDragResidual = 0f;
 
+        /// <summary>SliderOption.snapStep 付きのラベルドラッグで、刻みに届いていない移動量</summary>
+        private static float _snapDragResidual = 0f;
+
         /// <summary>
         /// ドラッグ差分を端数込みで積み、整数 1 以上になった分だけ step として取り出す。
         /// 1px 未満の移動を切り捨てないための共通処理
@@ -3026,6 +3029,8 @@ namespace COM3D2.MotionTimelineEditor
             /// 未使用。廃止した &lt;/&gt; ボタンの増分で、このサブモジュールを共有する他プラグインとの互換のため残している
             /// </summary>
             public float step;
+            /// <summary>0 より大きければ、スライダー・入力欄・ラベルドラッグの値をこの刻みへ丸める</summary>
+            public float snapStep;
             public float defaultValue;
             public float value;
             public bool hiddenResetButton;
@@ -3061,12 +3066,19 @@ namespace COM3D2.MotionTimelineEditor
                         ? option.dragSensitivity
                         : SliderDragSensitivity(option.min, option.max, isInt);
 
+                    var snapStep = option.snapStep;
                     subView.DrawDragLabel(label, option.labelWidth, 20, sensitivity, delta =>
                     {
                         // 混在 (NaN) はドラッグの起点が定まらないため変更しない
                         if (float.IsNaN(newValue)) return;
 
-                        if (isInt)
+                        if (snapStep > 0f)
+                        {
+                            // 刻みへ届くまで移動量を積む
+                            delta = SliderSnap.TakeDragSteps(ref _snapDragResidual, delta, snapStep);
+                            if (delta == 0f) return;
+                        }
+                        else if (isInt)
                         {
                             int step;
                             if (!TryTakeIntDragStep(delta, out step)) return;
@@ -3074,7 +3086,11 @@ namespace COM3D2.MotionTimelineEditor
                         }
                         newValue = Mathf.Clamp(newValue + delta, option.min, option.max);
                     },
-                    onDragStart: isInt ? (Action)(() => _intDragResidual = 0f) : null);
+                    onDragStart: () =>
+                    {
+                        _intDragResidual = 0f;
+                        _snapDragResidual = 0f;
+                    });
 
                     // ドラッグで変わった値を同じフレームの入力欄へ出すためキャッシュを更新する
                     fieldCache.UpdateValue(newValue);
@@ -3112,6 +3128,12 @@ namespace COM3D2.MotionTimelineEditor
                 }
             }
             EndSubView();
+
+            // 丸めるのは操作で値が変わったときだけ。刻み外の値を渡されただけで onChanged を呼ばない
+            if (option.snapStep > 0f && !float.IsNaN(newValue) && newValue != option.value)
+            {
+                newValue = SliderSnap.Snap(newValue, option.snapStep, option.min, option.max);
+            }
 
             if (!float.IsNaN(newValue) && newValue != option.value)
             {
@@ -3519,6 +3541,35 @@ namespace COM3D2.MotionTimelineEditor
             fieldCache.label = label;
             fieldCache.hasAlpha = hasAlpha;
             return fieldCache;
+        }
+    }
+
+    /// <summary>
+    /// スライダー行の刻み (GUIView.SliderOption.snapStep) の計算。
+    /// MTEUtils を共有する他プラグインの csproj はファイルを明示列挙しているため、新規ファイルにせずここへ置く
+    /// </summary>
+    public static class SliderSnap
+    {
+        /// <summary>値を刻みへ丸めて範囲へ収める。step が 0 以下なら丸めずに範囲へ収めるだけ</summary>
+        public static float Snap(float value, float step, float min, float max)
+        {
+            if (step > 0f)
+            {
+                value = Mathf.Round(value / step) * step;
+            }
+            return Mathf.Clamp(value, min, max);
+        }
+
+        /// <summary>
+        /// ラベルドラッグの移動量を residual に積み、刻みを越えた分だけ取り出す (端数は residual に残す)。
+        /// 1 イベントの移動量は刻みより小さいことが多く、そのたびに丸めると値が進まないため
+        /// </summary>
+        public static float TakeDragSteps(ref float residual, float delta, float step)
+        {
+            residual += delta;
+            var taken = (int)(residual / step) * step;
+            residual -= taken;
+            return taken;
         }
     }
 }
