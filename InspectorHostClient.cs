@@ -36,6 +36,7 @@ namespace COM3D2.MotionTimelineEditor
         private static Func<Rect> _getWindowRect;
         private static Func<bool> _isWindowVisible;
         private static Func<GameObject, Rect, float> _drawHeader;
+        private static Func<GameObject, bool> _drawsModel;
         private static bool _initialized;
 
         public static bool isAvailable
@@ -95,6 +96,19 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
+        /// <summary>
+        /// ホストが共通のモデル表示で描くかを問い合わせられるか。
+        /// 問い合わせられない旧バージョンの SceneEditor では、委譲先が別の手掛かりで近似する
+        /// </summary>
+        public static bool isDrawsModelAvailable
+        {
+            get
+            {
+                Initialize();
+                return _drawsModel != null;
+            }
+        }
+
         private static void Initialize()
         {
             if (_initialized)
@@ -139,6 +153,30 @@ namespace COM3D2.MotionTimelineEditor
             InitializeWindowState(type);
             InitializeHeaderDraw(type);
             InitializeRowsDraw(type);
+            InitializeDrawsModel(type);
+        }
+
+        /// <summary>
+        /// モデル表示の問い合わせも後から足した API なので、無くても既存の登録は成立させる
+        /// </summary>
+        private static void InitializeDrawsModel(Type type)
+        {
+            try
+            {
+                var drawsModel = type.GetMethod("DrawsModel", BindingFlags.Public | BindingFlags.Static);
+                if (drawsModel == null)
+                {
+                    return;
+                }
+
+                _drawsModel = (Func<GameObject, bool>)Delegate.CreateDelegate(
+                    typeof(Func<GameObject, bool>), drawsModel);
+            }
+            catch (Exception e)
+            {
+                MTEUtils.LogWarning("InspectorHostClient: モデル表示の問い合わせ API の解決に失敗しました: " + e.Message);
+                _drawsModel = null;
+            }
         }
 
         /// <summary>
@@ -289,6 +327,15 @@ namespace COM3D2.MotionTimelineEditor
             }
 
             return _drawHeader(go, rect);
+        }
+
+        /// <summary>
+        /// go をホストが共通のモデル表示 (RegisterRows の行を足す先) で描くか。
+        /// 問い合わせられなければ false (<see cref="isDrawsModelAvailable"/> で判定してから呼ぶこと)
+        /// </summary>
+        public static bool DrawsModel(GameObject go)
+        {
+            return isDrawsModelAvailable && _drawsModel(go);
         }
 
         public static void Unregister(object handle)
