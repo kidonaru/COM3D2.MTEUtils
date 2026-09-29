@@ -1139,7 +1139,8 @@ namespace COM3D2.MotionTimelineEditor
             if (info.isDragging)
             {
                 var mousePos = MTEUtils.mousePosition;
-                var diff = mousePos - info.lastMousePos;
+                // マウス位置はスクリーン座標、info.pos は窓内の論理座標なので、差分は UI 倍率で割る
+                var diff = GUIScale.ScreenDeltaToLocal(mousePos - info.lastMousePos);
                 diff.y = -diff.y;
                 if (diff.sqrMagnitude > 0)
                 {
