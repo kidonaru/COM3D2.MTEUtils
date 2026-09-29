@@ -54,6 +54,9 @@ namespace COM3D2.MotionTimelineEditor
         private static Action<object, Action<string[], int>> _enableTabBar;
         private static Action<object, int, float, float> _notifyTabMouseDown;
 
+        // 自窓の UI 倍率の登録 (ホストが旧バージョンだと存在しない)
+        private static Action<object, Func<float>> _enableGuiScale;
+
         public static bool isAvailable
         {
             get
@@ -203,6 +206,14 @@ namespace COM3D2.MotionTimelineEditor
                     _setTabScrollX = (Action<object, float>)Delegate.CreateDelegate(
                         typeof(Action<object, float>), setTabScrollX);
                 }
+
+                // UI 倍率の登録も後発 API のため任意。欠けるホストはゲストを倍率 1 として扱う
+                var enableGuiScale = type.GetMethod("EnableGuiScale", BindingFlags.Public | BindingFlags.Static);
+                if (enableGuiScale != null)
+                {
+                    _enableGuiScale = (Action<object, Func<float>>)Delegate.CreateDelegate(
+                        typeof(Action<object, Func<float>>), enableGuiScale);
+                }
             }
             catch (Exception e)
             {
@@ -224,6 +235,7 @@ namespace COM3D2.MotionTimelineEditor
                 _activateTabIndex = null;
                 _getTabScrollX = null;
                 _setTabScrollX = null;
+                _enableGuiScale = null;
             }
         }
 
@@ -347,6 +359,19 @@ namespace COM3D2.MotionTimelineEditor
             if (handle != null && isTabBarAvailable)
             {
                 _enableTabBar(handle, onTabBarChanged);
+            }
+        }
+
+        /// <summary>
+        /// 自窓の UI 倍率をホストへ渡す (タブ幅・ヘッダー高さ・並び替え判定をゲストの見た目と合わせるため)。
+        /// 未対応ホスト・未登録なら何もしない (ホストは倍率 1 として扱う)
+        /// </summary>
+        public static void EnableGuiScale(object handle, Func<float> getScale)
+        {
+            Initialize();
+            if (handle != null && _enableGuiScale != null)
+            {
+                _enableGuiScale(handle, getScale);
             }
         }
 
