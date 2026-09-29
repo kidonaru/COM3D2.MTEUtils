@@ -49,8 +49,8 @@ namespace COM3D2.MotionTimelineEditor
         private static int _menuWindowId = -1;
         /// <summary>メニューの左上位置 (ホストウィンドウのローカル座標)。ホストのドラッグに追従させるため相対で持つ</summary>
         private static Vector2 _menuAnchor;
-        /// <summary>今フレームの描画で使うメニュー矩形 (スクリーンGUI座標)</summary>
-        private static Rect _menuScreenRect;
+        /// <summary>メニューの窓矩形 (位置はスクリーン座標、サイズは論理サイズ)</summary>
+        private static Rect _menuWindowRect;
         /// <summary>メニューを開いたフレーム。開いた直後の押下で即閉じないためのガード</summary>
         private static int _menuOpenedFrame = -1;
         /// <summary>ホイールでスクロールしたフレーム。OnGUI は 1 フレームに複数回走るため多重処理を防ぐ</summary>
@@ -345,7 +345,7 @@ namespace COM3D2.MotionTimelineEditor
             if (Event.current.type == EventType.Layout &&
                 Time.frameCount != _menuOpenedFrame &&
                 (Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1)) &&
-                !_menuScreenRect.Contains(MTEUtils.rawGuiPosition))
+                !GUIScale.ToScreenRect(_menuWindowRect).Contains(MTEUtils.rawGuiPosition))
             {
                 CloseContextMenu();
                 return;
@@ -354,26 +354,28 @@ namespace COM3D2.MotionTimelineEditor
             _menuTitles = titles;
             _menuActiveIndex = activeIndex;
             _menuOnTabSelected = onTabSelected;
-            _menuScreenRect = CalcMenuScreenRect(hostRect, titles.Length);
+            _menuWindowRect = CalcMenuWindowRect(hostRect, titles.Length);
 
-            GUI.Window(MENU_WINDOW_ID, _menuScreenRect, DrawContextMenuContents, "", GUIView.gsWin);
+            GUIScale.Window(MENU_WINDOW_ID, _menuWindowRect, DrawContextMenuContents, "", GUIView.gsWin);
             // 他のウィンドウに隠されないよう最前面へ
             GUI.BringWindowToFront(MENU_WINDOW_ID);
         }
 
-        /// <summary>メニュー矩形をホスト相対から求め、画面内へ収める</summary>
-        private static Rect CalcMenuScreenRect(Rect hostRect, int count)
+        /// <summary>メニューの窓矩形をホスト相対から求め、実サイズで画面内へ収める</summary>
+        private static Rect CalcMenuWindowRect(Rect hostRect, int count)
         {
+            var s = GUIScale.scale;
             var height = count * MENU_ITEM_HEIGHT;
-            var x = hostRect.x + _menuAnchor.x;
-            var y = hostRect.y + _menuAnchor.y;
+            var anchor = GUIScale.LocalToScreen(hostRect.position, _menuAnchor);
+            var x = anchor.x;
+            var y = anchor.y;
             // 下へ収まらなければアンカーの上へ反転し、それでも溢れるなら画面内へクランプする
-            if (y + height > Screen.height)
+            if (y + height * s > Screen.height)
             {
-                y = hostRect.y + _menuAnchor.y - TAB_HEIGHT - height;
+                y = anchor.y - (TAB_HEIGHT + height) * s;
             }
-            y = Mathf.Clamp(y, 0, Mathf.Max(0, Screen.height - height));
-            x = Mathf.Clamp(x, 0, Mathf.Max(0, Screen.width - MENU_WIDTH));
+            y = Mathf.Clamp(y, 0, Mathf.Max(0, Screen.height - height * s));
+            x = Mathf.Clamp(x, 0, Mathf.Max(0, Screen.width - MENU_WIDTH * s));
             return new Rect(x, y, MENU_WIDTH, height);
         }
 
@@ -387,7 +389,7 @@ namespace COM3D2.MotionTimelineEditor
 
             var oldColor = GUI.color;
             // 背景 (下のウィンドウが透けて見えないよう不透明寄りにする)
-            var bgRect = new Rect(0, 0, _menuScreenRect.width, _menuScreenRect.height);
+            var bgRect = new Rect(0, 0, _menuWindowRect.width, _menuWindowRect.height);
             GUI.color = new Color(0.1f, 0.1f, 0.1f, 0.95f);
             GUI.DrawTexture(bgRect, Texture2D.whiteTexture);
             GUI.color = oldColor;

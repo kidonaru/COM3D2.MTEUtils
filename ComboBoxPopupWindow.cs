@@ -109,26 +109,29 @@ namespace COM3D2.MotionTimelineEditor
             _hostRectGetter = hostRectGetter ?? (() => host.windowRect);
         }
 
-        /// <summary>ボタンのスクリーンGUI座標の矩形。トグル判定と外側クリック判定に使う</summary>
+        /// <summary>ボタンのスクリーンGUI座標の実矩形。トグル判定と外側クリック判定に使う</summary>
         private Rect GetButtonScreenRect()
         {
-            var pos = _hostRectGetter().position + _comboBox.buttonPos;
-            return new Rect(pos.x, pos.y, _comboBox.buttonSize.x, _comboBox.buttonSize.y);
+            // buttonPos・buttonSize はホスト窓内の論理座標。ホストは窓ごと UI 倍率で拡大されている
+            return GUIScale.LocalToScreen(
+                _hostRectGetter().position, new Rect(_comboBox.buttonPos, _comboBox.buttonSize));
         }
 
+        /// <summary>ポップアップの窓矩形 (位置はスクリーン座標、サイズは論理サイズ)</summary>
         private Rect CalcPopupRect()
         {
             var buttonRect = GetButtonScreenRect();
             var size = _comboBox.GetPopupSize();
+            var screenSize = size * GUIScale.scale;
 
             // 基本はボタン直下。収まらなければボタンの上へ反転し、それでも画面内へクランプする
             var y = buttonRect.yMax;
-            if (y + size.y > Screen.height)
+            if (y + screenSize.y > Screen.height)
             {
-                y = buttonRect.y - size.y;
+                y = buttonRect.y - screenSize.y;
             }
-            y = Mathf.Clamp(y, 0, Mathf.Max(0, Screen.height - size.y));
-            var x = Mathf.Clamp(buttonRect.x, 0, Mathf.Max(0, Screen.width - size.x));
+            y = Mathf.Clamp(y, 0, Mathf.Max(0, Screen.height - screenSize.y));
+            var x = Mathf.Clamp(buttonRect.x, 0, Mathf.Max(0, Screen.width - screenSize.x));
 
             return new Rect(x, y, size.x, size.y);
         }
@@ -152,7 +155,7 @@ namespace COM3D2.MotionTimelineEditor
 
             // ホストのドラッグ移動に追従するよう毎フレーム計算する
             _popupRect = CalcPopupRect();
-            GUI.Window(WINDOW_ID, _popupRect, DrawPopup, "", GUIView.gsPopupWin);
+            GUIScale.Window(WINDOW_ID, _popupRect, DrawPopup, "", GUIView.gsPopupWin);
             // 他のウィンドウに隠されないよう最前面へ
             GUI.BringWindowToFront(WINDOW_ID);
         }
@@ -174,7 +177,7 @@ namespace COM3D2.MotionTimelineEditor
             if (_comboBox != null && Input.GetMouseButtonDown(0))
             {
                 var pos = MTEUtils.rawGuiPosition;
-                if (!CalcPopupRect().Contains(pos) && !GetButtonScreenRect().Contains(pos))
+                if (!GUIScale.ToScreenRect(CalcPopupRect()).Contains(pos) && !GetButtonScreenRect().Contains(pos))
                 {
                     Close();
                 }

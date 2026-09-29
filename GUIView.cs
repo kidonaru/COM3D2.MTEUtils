@@ -3226,8 +3226,8 @@ namespace COM3D2.MotionTimelineEditor
                     }
                     else
                     {
-                        var screenPos = GUIUtility.GUIToScreenPoint(buttonRect.position);
-                        var anchorRect = new Rect(screenPos.x, screenPos.y, buttonRect.width, buttonRect.height);
+                        // UI 倍率の拡大行列下では GUIUtility.GUIToScreenPoint が誤るため GUIScale で換算する
+                        var anchorRect = GUIScale.GUIToScreenRect(buttonRect);
 
                         picker.Open(
                             label,
@@ -3303,8 +3303,8 @@ namespace COM3D2.MotionTimelineEditor
                     }
                     else
                     {
-                        var screenPos = GUIUtility.GUIToScreenPoint(buttonRect.position);
-                        var anchorRect = new Rect(screenPos.x, screenPos.y, buttonRect.width, buttonRect.height);
+                        // UI 倍率の拡大行列下では GUIUtility.GUIToScreenPoint が誤るため GUIScale で換算する
+                        var anchorRect = GUIScale.GUIToScreenRect(buttonRect);
 
                         editor.Open(label, curve, curveColor, notifyingOnChanged, anchorRect);
                     }

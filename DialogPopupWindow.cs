@@ -163,9 +163,11 @@ namespace COM3D2.MotionTimelineEditor
                 messageStyle, _message, WINDOW_WIDTH - PADDING * 2);
             var windowHeight = PADDING + messageHeight + GUIView.defaultMargin
                 + 10 + GUIView.defaultMargin + BUTTON_HEIGHT + PADDING;
+            // 中央配置は UI 倍率を掛けた実サイズで行う
+            var s = GUIScale.scale;
             _windowRect = new Rect(
-                (Screen.width - WINDOW_WIDTH) / 2,
-                (Screen.height - windowHeight) / 2,
+                (Screen.width - WINDOW_WIDTH * s) / 2,
+                (Screen.height - windowHeight * s) / 2,
                 WINDOW_WIDTH,
                 windowHeight);
 
@@ -179,7 +181,7 @@ namespace COM3D2.MotionTimelineEditor
             GUI.BringWindowToFront(OVERLAY_WINDOW_ID);
 
             // ModalWindow で背後のウィンドウ操作をブロックする
-            GUI.ModalWindow(WINDOW_ID, _windowRect, DrawDialog, "", GUIView.gsWin);
+            GUIScale.ModalWindow(WINDOW_ID, _windowRect, DrawDialog, "", GUIView.gsWin);
             GUI.BringWindowToFront(WINDOW_ID);
         }
 

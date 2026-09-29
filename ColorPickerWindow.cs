@@ -154,16 +154,18 @@ namespace COM3D2.MotionTimelineEditor
         /// </summary>
         private void ApplyAnchorPosition()
         {
+            // _anchorRect はスクリーン座標の実矩形、窓の大きさは論理サイズなので実サイズで判定する
+            var s = GUIScale.scale;
             var x = _anchorRect.x;
-            if (x + WINDOW_WIDTH > Screen.width)
+            if (x + WINDOW_WIDTH * s > Screen.width)
             {
-                x = Screen.width - WINDOW_WIDTH;
+                x = Screen.width - WINDOW_WIDTH * s;
             }
 
-            var y = _anchorRect.yMax + ANCHOR_MARGIN;
-            if (y + _windowHeight > Screen.height)
+            var y = _anchorRect.yMax + ANCHOR_MARGIN * s;
+            if (y + _windowHeight * s > Screen.height)
             {
-                y = _anchorRect.y - _windowHeight - ANCHOR_MARGIN;
+                y = _anchorRect.y - (_windowHeight + ANCHOR_MARGIN) * s;
             }
 
             _windowRect.x = Mathf.Max(x, 0);
@@ -203,7 +205,7 @@ namespace COM3D2.MotionTimelineEditor
 
         public void OnScreenSizeChanged()
         {
-            MTEUtils.AdjustWindowPosition(ref _windowRect);
+            _windowRect = GUIScale.ClampToScreen(_windowRect);
         }
 
         public void InitView()
@@ -225,7 +227,7 @@ namespace COM3D2.MotionTimelineEditor
             _initializedGUI = true;
 
             InitView();
-            MTEUtils.AdjustWindowPosition(ref _windowRect);
+            _windowRect = GUIScale.ClampToScreen(_windowRect);
         }
 
         public void OnGUI()
@@ -255,8 +257,8 @@ namespace COM3D2.MotionTimelineEditor
             }
 
             var title = string.IsNullOrEmpty(_targetLabel) ? WINDOW_NAME : WINDOW_NAME + ": " + _targetLabel;
-            _windowRect = GUI.Window(windowId, _windowRect, DrawWindow, title, GUIView.gsWin);
-            MTEUtils.ResetInputOnScroll(_windowRect);
+            _windowRect = GUIScale.Window(windowId, _windowRect, DrawWindow, title, GUIView.gsWin);
+            MTEUtils.ResetInputOnScroll(GUIScale.ToScreenRect(_windowRect));
         }
 
         /// <summary>
@@ -269,7 +271,7 @@ namespace COM3D2.MotionTimelineEditor
             if (Event.current.type != EventType.Repaint) return false;
             if (_openedFrame == Time.frameCount) return false;
             if (!Input.GetMouseButtonDown(0)) return false;
-            if (MTEUtils.IsMouseOverWindowRect(_windowRect)) return false;
+            if (MTEUtils.IsMouseOverWindowRect(GUIScale.ToScreenRect(_windowRect))) return false;
 
             Close();
             return true;

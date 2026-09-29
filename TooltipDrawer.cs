@@ -35,10 +35,7 @@ namespace COM3D2.MotionTimelineEditor
                 return;
             }
 
-            // GUIUtility.GUIToScreenRect は Unity 5.6 に無いため 2 隅を個別に変換する
-            var min = GUIUtility.GUIToScreenPoint(new Vector2(localRect.xMin, localRect.yMin));
-            var max = GUIUtility.GUIToScreenPoint(new Vector2(localRect.xMax, localRect.yMax));
-            var screenRect = Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+            var screenRect = GUIScale.GUIToScreenRect(localRect);
 
             // 別のコントロールへ移ったら遅延を取り直す
             if (text != _text || screenRect != _sourceScreenRect)
@@ -85,13 +82,15 @@ namespace COM3D2.MotionTimelineEditor
             }
 
             var size = GUIView.CalcSize(GUIView.gsLabel, _text) + Padding * 2f;
+            // 画面上の大きさは UI 倍率ぶん大きい。はみ出し判定は実サイズで行う
+            var screenSize = size * GUIScale.scale;
             var pos = MTEUtils.rawGuiPosition + CursorOffset;
             // 画面外へはみ出すなら内側へ寄せる
-            pos.x = Mathf.Clamp(pos.x, 0f, Mathf.Max(0f, Screen.width - size.x));
-            pos.y = Mathf.Clamp(pos.y, 0f, Mathf.Max(0f, Screen.height - size.y));
+            pos.x = Mathf.Clamp(pos.x, 0f, Mathf.Max(0f, Screen.width - screenSize.x));
+            pos.y = Mathf.Clamp(pos.y, 0f, Mathf.Max(0f, Screen.height - screenSize.y));
             _windowRect = new Rect(pos, size);
 
-            GUI.Window(WINDOW_ID, _windowRect, DrawContents, "", GUIStyle.none);
+            GUIScale.Window(WINDOW_ID, _windowRect, DrawContents, "", GUIStyle.none);
             // 他のウィンドウに隠されないよう最前面へ
             GUI.BringWindowToFront(WINDOW_ID);
         }
