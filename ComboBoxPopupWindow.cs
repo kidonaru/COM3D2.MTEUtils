@@ -56,10 +56,11 @@ namespace COM3D2.MotionTimelineEditor
             }
         }
 
+        /// <summary>画面上の実矩形 (内部の窓矩形は位置がスクリーン座標・サイズが論理サイズ)</summary>
         public Rect windowRect
         {
-            get => _popupRect;
-            set => _popupRect = value;
+            get => GUIScale.ToScreenRect(_popupRect);
+            set => _popupRect = GUIScale.ToWindowRect(value);
         }
 
         private static ComboBoxPopupWindow _instance = null;

@@ -11,7 +11,9 @@ namespace COM3D2.MotionTimelineEditor
     /// (グループ加入中はホストが push したタブ状態を自前ヘッダーへ描くため、
     /// 内部窓とタブ列の見た目・位置が揃っている必要がある)。
     /// 注意: ドッキング参加中は windowRect がホスト都合 (タブ同期・連結クランプ等) で
-    /// setRect デリゲート経由で書き換わりうる契約である
+    /// setRect デリゲート経由で書き換わりうる契約である。
+    /// windowRect は画面上の実矩形。窓の中は UI 倍率 (GUIScale) で拡大され、
+    /// 派生側の描画は localWindowRect / contentRect (論理サイズ) を使う
     /// </summary>
     public abstract class DockableWindowBase : IGUIWindow, IResizeCursorProvider, ITabVisibleWindow
     {
@@ -162,9 +164,12 @@ namespace COM3D2.MotionTimelineEditor
         /// <summary>移動の永続化検知用。前フレームの矩形</summary>
         private Rect _lastStoredRect;
 
-        /// <summary>OnSizeChanged 通知用。前フレームの実寸</summary>
+        /// <summary>OnSizeChanged 通知用。前フレームの窓内の論理サイズ</summary>
         private int _lastWidth;
         private int _lastHeight;
+
+        /// <summary>倍率変更の検知用。前フレームの UI 倍率</summary>
+        private float _lastScale = 1f;
 
         public bool isResizing => _resize.isResizing;
 
@@ -173,10 +178,21 @@ namespace COM3D2.MotionTimelineEditor
             _resize.GetCursorKind(
                 _windowRect, _isShowWnd && !_dockTabHidden && !_isLocked, windowId);
 
-        public Rect contentRect => new Rect(
-            FRAME, HEADER_HEIGHT,
-            _windowRect.width - FRAME * 2,
-            _windowRect.height - HEADER_HEIGHT - FRAME);
+        /// <summary>窓の中の座標系 (論理サイズ) での窓全体。実矩形を UI 倍率で割ったもの</summary>
+        protected Rect localWindowRect => new Rect(
+            0f, 0f, _windowRect.width / GUIScale.scale, _windowRect.height / GUIScale.scale);
+
+        public Rect contentRect
+        {
+            get
+            {
+                var local = localWindowRect;
+                return new Rect(
+                    FRAME, HEADER_HEIGHT,
+                    local.width - FRAME * 2,
+                    local.height - HEADER_HEIGHT - FRAME);
+            }
+        }
 
         public virtual void Init()
         {
@@ -190,8 +206,9 @@ namespace COM3D2.MotionTimelineEditor
                 width,
                 height);
             _lastStoredRect = _windowRect;
-            _lastWidth = (int)_windowRect.width;
-            _lastHeight = (int)_windowRect.height;
+            var local = localWindowRect;
+            _lastWidth = (int)local.width;
+            _lastHeight = (int)local.height;
             _isLocked = LoadLocked();
         }
 
@@ -232,6 +249,9 @@ namespace COM3D2.MotionTimelineEditor
             DockingClient.EnableConnect(_dockHandle);
 
             // タブグループ加入中は自前ヘッダーへタブバーを描くため、状態 push を受け取る
+            // タブ幅・ヘッダー高さ・並び替え判定を自窓の見た目と合わせるため、UI 倍率をホストへ渡す
+            DockingClient.EnableGuiScale(_dockHandle, () => GUIScale.scale);
+
             DockingClient.EnableTabBar(_dockHandle, (titles, activeIndex) =>
             {
                 var activeChanged = activeIndex != _tabActiveIndex;
@@ -250,7 +270,7 @@ namespace COM3D2.MotionTimelineEditor
                     // 見切れたタブへ寄せる処理は本来ホストが行う。
                     // 共有 API を持たない旧ホストでも効くよう自前の値にも反映しておく
                     _tabScrollX = TabBarLayout.ScrollToShow(
-                        titles.Length, TabBarLayout.CalcAvailableWidth(_windowRect.width),
+                        titles.Length, TabBarLayout.CalcAvailableWidth(localWindowRect.width),
                         _tabScrollX, activeIndex);
                 }
             });
@@ -286,7 +306,10 @@ namespace COM3D2.MotionTimelineEditor
 
             // グループ加入中はタブバーを自前描画するのでタイトルは空にする
             var title = _tabTitles != null ? "" : windowTitle;
-            _windowRect = GUI.Window(windowId, _windowRect, DrawWindowInternal, title, GUIView.gsWin);
+            // 窓ごと UI 倍率で拡大する。窓矩形 (論理サイズ) を渡し、移動だけを実矩形へ戻す
+            var result = GUIScale.Window(
+                windowId, GUIScale.ToWindowRect(_windowRect), DrawWindowInternal, title, GUIView.gsWin);
+            _windowRect.position = result.position;
 
             // タブ切替メニューはホスト矩形にクリップされないよう別ウィンドウとして描く
             TabBarDrawer.DrawContextMenuWindow(
@@ -319,7 +342,7 @@ namespace COM3D2.MotionTimelineEditor
 
             // 閉じるボタン (ヘッダー右端)
             var closeRect = new Rect(
-                _windowRect.width - CLOSE_BUTTON_WIDTH - CLOSE_BUTTON_MARGIN * 2,
+                localWindowRect.width - CLOSE_BUTTON_WIDTH - CLOSE_BUTTON_MARGIN * 2,
                 (HEADER_HEIGHT - CLOSE_BUTTON_HEIGHT) * 0.5f,
                 CLOSE_BUTTON_WIDTH,
                 CLOSE_BUTTON_HEIGHT);
@@ -347,7 +370,7 @@ namespace COM3D2.MotionTimelineEditor
                 x = FRAME,
                 y = (HEADER_HEIGHT - TabBarDrawer.TAB_HEIGHT) * 0.5f,
                 headerHeight = HEADER_HEIGHT,
-                availableWidth = TabBarLayout.CalcAvailableWidth(_windowRect.width),
+                availableWidth = TabBarLayout.CalcAvailableWidth(localWindowRect.width),
             };
 
             // スクロール位置はグループの状態なのでホストの値を優先する
@@ -357,7 +380,9 @@ namespace COM3D2.MotionTimelineEditor
             TabBarDrawer.Draw(
                 windowId, _tabTitles, _tabActiveIndex, geo,
                 ref scrollX,
-                (index, pos) => DockingClient.NotifyTabMouseDown(_dockHandle, index, pos.x, pos.y),
+                // つまみ位置は切り離し後の追従 (スクリーン座標) に使われるため実ピクセルへ戻す
+                (index, pos) => DockingClient.NotifyTabMouseDown(
+                    _dockHandle, index, pos.x * GUIScale.scale, pos.y * GUIScale.scale),
                 index => DockingClient.ActivateTabIndex(_dockHandle, index));
 
             // 描画中のコールバック (タブ切替) でホスト側が書き換わっていたらそちらが新しい。
@@ -419,9 +444,10 @@ namespace COM3D2.MotionTimelineEditor
         {
             var e = Event.current;
 
-            // リサイズ開始判定 (4辺+4隅)。開始したらイベントを消費して移動と競合させない
+            // リサイズ開始判定 (4辺+4隅)。開始したらイベントを消費して移動と競合させない。
+            // つかみ範囲は実ピクセルで判定するため、窓内の論理座標を実ピクセルへ戻す
             if (e.type == EventType.MouseDown && e.button == 0 &&
-                _resize.TryBegin(_windowRect, e.mousePosition))
+                _resize.TryBegin(_windowRect, e.mousePosition * GUIScale.scale))
             {
                 e.Use();
             }
@@ -463,13 +489,20 @@ namespace COM3D2.MotionTimelineEditor
             }
             else
             {
-                GUI.DragWindow(new Rect(0, 0, _windowRect.width, HEADER_HEIGHT));
+                GUI.DragWindow(new Rect(0, 0, localWindowRect.width, HEADER_HEIGHT));
             }
         }
 
         public virtual void Update()
         {
             UpdateActivateRequest();
+
+            // 倍率が変わると窓内の座標系が変わるため、ドラッグ中のリサイズは中断する
+            if (_lastScale != GUIScale.scale)
+            {
+                _lastScale = GUIScale.scale;
+                _resize.Cancel();
+            }
 
             if (_resize.UpdateResize(ref _windowRect, minWidth, minHeight))
             {
@@ -484,11 +517,12 @@ namespace COM3D2.MotionTimelineEditor
                 StorePlacementInternal();
             }
 
-            // リサイズやドッキングのタブ同期で実寸が変わったら派生側へ通知する
-            if (_lastWidth != (int)_windowRect.width || _lastHeight != (int)_windowRect.height)
+            // リサイズ・タブ同期・UI 倍率の変化で窓内の論理サイズが変わったら派生側へ通知する
+            var local = localWindowRect;
+            if (_lastWidth != (int)local.width || _lastHeight != (int)local.height)
             {
-                _lastWidth = (int)_windowRect.width;
-                _lastHeight = (int)_windowRect.height;
+                _lastWidth = (int)local.width;
+                _lastHeight = (int)local.height;
                 OnSizeChanged(_lastWidth, _lastHeight);
             }
         }
@@ -543,7 +577,7 @@ namespace COM3D2.MotionTimelineEditor
         {
         }
 
-        /// <summary>ウィンドウの実寸が変わったときに呼ばれる。ビュー再構築に使う</summary>
+        /// <summary>窓内の論理サイズが変わったときに呼ばれる。ビュー再構築に使う</summary>
         protected virtual void OnSizeChanged(int width, int height)
         {
         }

@@ -40,10 +40,11 @@ namespace COM3D2.MotionTimelineEditor
         public bool isShowWnd { get; set; }
 
         private Rect _windowRect;
+        /// <summary>画面上の実矩形 (内部の窓矩形は位置がスクリーン座標・サイズが論理サイズ)</summary>
         public Rect windowRect
         {
-            get => _windowRect;
-            set => _windowRect = value;
+            get => GUIScale.ToScreenRect(_windowRect);
+            set => _windowRect = GUIScale.ToWindowRect(value);
         }
 
         private int _windowHeight = 320;
@@ -88,6 +89,10 @@ namespace COM3D2.MotionTimelineEditor
         private ColorPickerWindow()
         {
             _windowRect = new Rect(0, 0, WINDOW_WIDTH, _windowHeight);
+
+            // 開いた時点のボタン位置と実サイズで配置しているため、倍率が変わると位置がずれ画面外へはみ出しうる。
+            // 開き直せば新しい倍率で置かれるので閉じる (シングルトンなので購読は解除しない)
+            GUIScale.scaleChanged += Close;
         }
 
         /// <summary>

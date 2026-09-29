@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace COM3D2.MotionTimelineEditor
@@ -16,10 +17,22 @@ namespace COM3D2.MotionTimelineEditor
 
         private static float _scale = 1f;
 
+        /// <summary>倍率が変わったときに呼ばれる。開いた時点の位置・実サイズで置いたポップアップを閉じる等に使う</summary>
+        public static event Action scaleChanged;
+
         public static float scale
         {
             get => _scale;
-            set => _scale = ClampScale(value);
+            set
+            {
+                var clamped = ClampScale(value);
+                if (clamped == _scale)
+                {
+                    return;
+                }
+                _scale = clamped;
+                scaleChanged?.Invoke();
+            }
         }
 
         public static bool isScaled => _scale != 1f;
