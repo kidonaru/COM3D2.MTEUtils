@@ -11,13 +11,16 @@ namespace COM3D2.MotionTimelineEditor
     /// </summary>
     public static class UIScaleClient
     {
-        // ホスト探索の再試行間隔と打ち切りまでの時間 (EditorStateClient と同じ考え方)。
-        // これを過ぎても見つからなければ SceneEditor 不在の環境とみなす
+        // ホスト探索の再試行間隔と打ち切りまでの時間。これを過ぎても見つからなければ SceneEditor 不在とみなす
         private const float RetryIntervalSeconds = 1f;
         private const float RetryTimeoutSeconds = 30f;
 
-        // 読み取りの例外を何回まで許すか。超えたらそのセッション中は連携しない (毎フレームのログを避ける)
+        // 読み取りの例外が何回続いたら連携を止めるか。止めたらそのセッション中は自前の設定を使う (毎フレームのログを避ける)
         private const int MaxReadFailures = 3;
+
+        /// <summary>SceneEditor の倍率に従っている間、各プラグインの設定行に添える案内</summary>
+        public const string FollowingHostMessage =
+            "SceneEditor の UI 倍率に従っています (SceneEditor の設定ウィンドウ「表示」タブで変更)";
 
         private static Func<float> _getHostScale;
         private static bool _initialized;
@@ -26,7 +29,7 @@ namespace COM3D2.MotionTimelineEditor
         private static int _readFailures;
 
         /// <summary>
-        /// 実際に使う倍率。SceneEditor の倍率 (0 以下・壊れた値は「無し」扱い) があればそれ、
+        /// 実際に使う倍率を決める純関数 (Resolve の中身)。SceneEditor の倍率 (0 以下・壊れた値は「無し」扱い) があればそれ、
         /// 無ければ自前の設定。どちらも GUIScale の許容範囲へ収める
         /// </summary>
         public static float ResolveScale(float hostScale, float ownScale)
@@ -49,7 +52,9 @@ namespace COM3D2.MotionTimelineEditor
                 }
                 try
                 {
-                    return _getHostScale();
+                    var value = _getHostScale();
+                    _readFailures = 0;
+                    return value;
                 }
                 catch (Exception e)
                 {
@@ -57,6 +62,7 @@ namespace COM3D2.MotionTimelineEditor
                     MTEUtils.LogWarning("UIScaleClient: UIScaleHost の読み取りに失敗しました: {0}", e.Message);
                     if (++_readFailures >= MaxReadFailures)
                     {
+                        MTEUtils.LogWarning("UIScaleClient: 読み取りの失敗が続いたため、以降は自前の UI 倍率を使います");
                         _getHostScale = null;
                     }
                     return 0f;
@@ -66,6 +72,7 @@ namespace COM3D2.MotionTimelineEditor
 
         public static bool isFollowingHost => hostScale > 0f;
 
+        /// <summary>呼び出し側が使う入口。SceneEditor の倍率があればそれ、無ければ ownScale を返す</summary>
         public static float Resolve(float ownScale)
         {
             return ResolveScale(hostScale, ownScale);

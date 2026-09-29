@@ -248,10 +248,10 @@ namespace COM3D2.MotionTimelineEditor
             // コネクト候補になることをホストへ宣言する
             DockingClient.EnableConnect(_dockHandle);
 
-            // タブグループ加入中は自前ヘッダーへタブバーを描くため、状態 push を受け取る
-            // タブ幅・ヘッダー高さ・並び替え判定を自窓の見た目と合わせるため、UI 倍率をホストへ渡す
+            // UI 倍率をホストへ渡し、タブ幅・ヘッダー高さ・並び替え判定を自窓の見た目と合わせる
             DockingClient.EnableGuiScale(_dockHandle, () => GUIScale.scale);
 
+            // タブグループ加入中は自前ヘッダーへタブバーを描くため、状態 push を受け取る
             DockingClient.EnableTabBar(_dockHandle, (titles, activeIndex) =>
             {
                 var activeChanged = activeIndex != _tabActiveIndex;

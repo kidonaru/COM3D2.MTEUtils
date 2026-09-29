@@ -90,8 +90,7 @@ namespace COM3D2.MotionTimelineEditor
         {
             _windowRect = new Rect(0, 0, WINDOW_WIDTH, _windowHeight);
 
-            // 開いた時点のボタン位置と実サイズで配置しているため、倍率が変わると位置がずれ画面外へはみ出しうる。
-            // 開き直せば新しい倍率で置かれるので閉じる (シングルトンなので購読は解除しない)
+            // 倍率が変わると開いた時点の配置がずれるため閉じる (シングルトンなので購読は解除しない)
             GUIScale.scaleChanged += Close;
         }
 

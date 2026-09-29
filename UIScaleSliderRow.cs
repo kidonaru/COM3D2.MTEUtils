@@ -66,6 +66,7 @@ namespace COM3D2.MotionTimelineEditor
             view.EndEnabled();
         }
 
+        /// <summary>操作が終わって値が変わっていれば、丸めた倍率を newScale へ返して true</summary>
         public bool TryCommit(float currentScale, out float newScale)
         {
             newScale = currentScale;
