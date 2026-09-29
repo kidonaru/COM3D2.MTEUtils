@@ -42,8 +42,20 @@ namespace COM3D2.MotionTimelineEditor
             return byMouse || !keyboardFocused || isEnter;
         }
 
+        /// <summary>
+        /// マウス操作のイベントか。スライダー・ラベルドラッグ・R ボタンは処理したイベントを Use() で
+        /// Used に書き換える (type も rawType も変わる) ため、コントロールを描く前に取った種別を渡すこと
+        /// </summary>
+        public static bool IsMouseEventType(EventType eventType)
+        {
+            return eventType == EventType.MouseDown || eventType == EventType.MouseDrag || eventType == EventType.MouseUp;
+        }
+
         public void Draw(GUIView view, string label, float labelWidth, float currentScale, bool enabled)
         {
+            // onChanged の時点ではイベントが Used に書き換わっているため、描く前に取っておく
+            var byMouse = IsMouseEventType(Event.current.type);
+
             view.BeginEnabled(enabled);
             // 値は % で見せる (設定ファイルの uiScale は倍率のまま)
             view.DrawSliderValue(new GUIView.SliderOption
@@ -60,7 +72,7 @@ namespace COM3D2.MotionTimelineEditor
                 onChanged = value =>
                 {
                     _pendingPercent = value;
-                    _pendingByMouse = Event.current.isMouse;
+                    _pendingByMouse = byMouse;
                 },
             });
             view.EndEnabled();
