@@ -160,6 +160,18 @@ namespace COM3D2.MotionTimelineEditor
             return ClampToScreen(windowRect, _scale, Screen.width, Screen.height);
         }
 
+        /// <summary>画面中央へ置く窓矩形。中央へ寄せる計算は倍率を掛けた実サイズで行い、サイズは論理サイズのまま返す</summary>
+        public static Rect CenterOnScreen(float width, float height, float scale, float screenWidth, float screenHeight)
+        {
+            return new Rect(
+                (screenWidth - width * scale) / 2f, (screenHeight - height * scale) / 2f, width, height);
+        }
+
+        public static Rect CenterOnScreen(float width, float height)
+        {
+            return CenterOnScreen(width, height, _scale, Screen.width, Screen.height);
+        }
+
         /// <summary>
         /// 倍率付きの GUI.Window。windowRect は窓矩形で、移動後の窓矩形を返す。
         /// 行列はトップレベル (GUI.matrix が単位行列) から呼ぶ前提で、窓の左上を中心に拡大する。

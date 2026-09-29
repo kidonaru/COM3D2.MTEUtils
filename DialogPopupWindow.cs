@@ -163,13 +163,7 @@ namespace COM3D2.MotionTimelineEditor
                 messageStyle, _message, WINDOW_WIDTH - PADDING * 2);
             var windowHeight = PADDING + messageHeight + GUIView.defaultMargin
                 + 10 + GUIView.defaultMargin + BUTTON_HEIGHT + PADDING;
-            // 中央配置は UI 倍率を掛けた実サイズで行う
-            var s = GUIScale.scale;
-            _windowRect = new Rect(
-                (Screen.width - WINDOW_WIDTH * s) / 2,
-                (Screen.height - windowHeight * s) / 2,
-                WINDOW_WIDTH,
-                windowHeight);
+            _windowRect = GUIScale.CenterOnScreen(WINDOW_WIDTH, windowHeight);
 
             // 背後のウィンドウより手前に黒フェードを敷いてダイアログを目立たせる。
             // 通常の GUI.DrawTexture は全ウィンドウの奥に描かれてしまうため、
