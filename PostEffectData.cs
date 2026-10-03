@@ -187,6 +187,23 @@ namespace COM3D2.MotionTimelineEditor.PostEffects
         public int maidIndex = 0;
     }
 
+    /// <summary>
+    /// オーバーレイ (ScreenOverlay)。実体の enum 2 種は PostEffects 側の型なのでここでは持てず、int で受け渡す
+    /// (値の対応は TimelineBridge が変換する)。
+    /// テクスチャのパス (文字列) は持たない (触らない = PostEffects 側 UI の管轄)
+    /// </summary>
+    public class ScreenOverlayData
+    {
+        public bool enabled = false;
+        // ScreenOverlay.OverlayBlendMode: 0=Additive, 1=ScreenBlend, 2=Multiply, 3=Overlay, 4=AlphaBlend
+        public int blendMode = 2;
+        // ScreenOverlaySource: 0=Texture, 1=Color
+        public int source = 0;
+        public float intensity = 1f;
+        // カラーソースで重ねる色
+        public Color color = Color.black;
+    }
+
     /// <summary>ポストエフェクト DTO のキーフレーム間補間。enabled 等の非連続値は start 側を採る</summary>
     public static class PostEffectDataLerp
     {

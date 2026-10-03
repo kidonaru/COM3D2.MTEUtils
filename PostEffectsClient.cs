@@ -63,6 +63,10 @@ namespace COM3D2.MotionTimelineEditor
         private static Func<object> _getCinematicDepthOfField;
         private static MethodInfo _applyCinematicDepthOfField;
 
+        // オーバーレイも任意メソッド。旧版ホストで欠けていても他の系統は止めない
+        private static Func<object> _getScreenOverlay;
+        private static MethodInfo _applyScreenOverlay;
+
         // Apply 系へ渡すホスト側 DTO のインスタンスを使い回す (毎フレーム生成しない)
         private static object _paraffinArg;
         private static object _distanceFogArg;
@@ -71,6 +75,7 @@ namespace COM3D2.MotionTimelineEditor
         private static object _depthOfFieldArg;
         private static object _bloomArg;
         private static object _cinematicDepthOfFieldArg;
+        private static object _screenOverlayArg;
 
         // MethodInfo.Invoke 用の引数配列も使い回す
         private static readonly object[] _args1 = new object[1];
@@ -96,6 +101,13 @@ namespace COM3D2.MotionTimelineEditor
         /// </summary>
         public static bool isCinematicDepthOfFieldAvailable =>
             isAvailable && _cinematicDepthOfFieldArg != null;
+
+        /// <summary>
+        /// オーバーレイの API がホストにあるか。
+        /// 旧版の PostEffects.Plugin では false になるが、他の系統は isAvailable のまま動く
+        /// </summary>
+        public static bool isScreenOverlayAvailable =>
+            isAvailable && _screenOverlayArg != null;
 
         private static void Initialize()
         {
@@ -197,6 +209,7 @@ namespace COM3D2.MotionTimelineEditor
             }
 
             InitializeCinematicDepthOfField(type);
+            InitializeScreenOverlay(type);
         }
 
         /// <summary>
@@ -239,6 +252,48 @@ namespace COM3D2.MotionTimelineEditor
             _getCinematicDepthOfField = null;
             _applyCinematicDepthOfField = null;
             _cinematicDepthOfFieldArg = null;
+        }
+
+        /// <summary>
+        /// オーバーレイ (任意メソッド) を解決する。
+        /// 必須系統とは別の try に置き、ここで失敗しても他の系統は止めない
+        /// </summary>
+        private static void InitializeScreenOverlay(Type type)
+        {
+            try
+            {
+                _getScreenOverlay = CreateFuncObject(type, "GetScreenOverlay");
+                _applyScreenOverlay = type.GetMethod(
+                    "ApplyScreenOverlay", BindingFlags.Public | BindingFlags.Static);
+                if (_getScreenOverlay == null || _applyScreenOverlay == null ||
+                    _applyScreenOverlay.GetParameters().Length != 1)
+                {
+                    MTEUtils.LogDebug(
+                        "PostEffectsClient: TimelineBridge にオーバーレイの API がありません (旧版の PostEffects.Plugin)");
+                    DisableScreenOverlay();
+                    return;
+                }
+
+                _screenOverlayArg = Activator.CreateInstance(
+                    _applyScreenOverlay.GetParameters()[0].ParameterType);
+                WarnUnmappedFields(
+                    "オーバーレイ",
+                    typeof(PEData.ScreenOverlayData),
+                    _screenOverlayArg);
+            }
+            catch (Exception e)
+            {
+                MTEUtils.LogWarning(
+                    "PostEffectsClient: オーバーレイの接続に失敗しました: " + e.Message);
+                DisableScreenOverlay();
+            }
+        }
+
+        private static void DisableScreenOverlay()
+        {
+            _getScreenOverlay = null;
+            _applyScreenOverlay = null;
+            _screenOverlayArg = null;
         }
 
         /// <summary>
@@ -828,6 +883,42 @@ namespace COM3D2.MotionTimelineEditor
             catch (Exception e)
             {
                 LogHostError("ApplyCinematicDepthOfField", e);
+            }
+        }
+
+        public static PEData.ScreenOverlayData GetScreenOverlay()
+        {
+            var dto = new PEData.ScreenOverlayData();
+            if (!isScreenOverlayAvailable)
+            {
+                return dto;
+            }
+            try
+            {
+                ReflectionFieldCopier.Copy(_getScreenOverlay(), dto);
+            }
+            catch (Exception e)
+            {
+                LogHostError("GetScreenOverlay", e);
+            }
+            return dto;
+        }
+
+        public static void ApplyScreenOverlay(PEData.ScreenOverlayData data)
+        {
+            if (!isScreenOverlayAvailable)
+            {
+                return;
+            }
+            try
+            {
+                ReflectionFieldCopier.Copy(data, _screenOverlayArg);
+                _args1[0] = _screenOverlayArg;
+                _applyScreenOverlay.Invoke(null, _args1);
+            }
+            catch (Exception e)
+            {
+                LogHostError("ApplyScreenOverlay", e);
             }
         }
     }
