@@ -59,6 +59,7 @@ namespace COM3D2.MotionTimelineEditor
         // 旧版ホストには無い任意メソッド。未定義でも接続自体は有効のまま
         private static Action _showTimelineMode;
         private static Func<bool> _loadStartupPreset;
+        private static Action<bool> _setSuspended;
 
         // シネマティック被写界深度も任意メソッド。旧版ホストで欠けていても他の系統は止めない
         private static Func<object> _getCinematicDepthOfField;
@@ -165,6 +166,7 @@ namespace COM3D2.MotionTimelineEditor
 
                 _showTimelineMode = CreateAction(type, "ShowTimelineMode");
                 _loadStartupPreset = CreateFuncBool(type, "LoadStartupPreset");
+                _setSuspended = CreateActionBool(type, "SetSuspended");
 
                 if (_getMaxParaffinCount == null || _getMaxDistanceFogCount == null ||
                     _getMaxRimlightCount == null ||
@@ -443,6 +445,19 @@ namespace COM3D2.MotionTimelineEditor
             }
             try { return _loadStartupPreset(); }
             catch (Exception e) { LogHostError("LoadStartupPreset", e); return false; }
+        }
+
+        /// <summary>
+        /// ホストのエフェクト適用を一時停止 / 再開する。送れなかった場合 (旧版ホスト・未接続・失敗) は false
+        /// </summary>
+        public static bool SetSuspended(bool suspended)
+        {
+            if (!isAvailable || _setSuspended == null)
+            {
+                return false;
+            }
+            try { _setSuspended(suspended); return true; }
+            catch (Exception e) { LogHostError("SetSuspended", e); return false; }
         }
 
         /// <summary>
