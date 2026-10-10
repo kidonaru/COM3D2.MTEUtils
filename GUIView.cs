@@ -2610,17 +2610,36 @@ namespace COM3D2.MotionTimelineEditor
             return style.CalcHeight(_tempContent, width);
         }
 
-        private static Dictionary<string, Vector2> _tagSizeCache = new Dictionary<string, Vector2>();
+        private static readonly Dictionary<GUIStyle, Dictionary<string, Vector2>> _sizeCache =
+            new Dictionary<GUIStyle, Dictionary<string, Vector2>>();
 
-        private static Vector2 CalcTagSize(string text)
+        /// <summary>
+        /// CalcSize の結果を style と text の組ごとに覚えて返す。
+        /// 覚えた後に style のフォントや余白を変えても、覚えた値のまま返す。
+        /// 覚えた値は消さないため、数値など種類が限られない文字列には CalcSize を使う
+        /// </summary>
+        public static Vector2 CalcSizeCached(GUIStyle style, string text)
         {
-            Vector2 size;
-            if (!_tagSizeCache.TryGetValue(text, out size))
+            Dictionary<string, Vector2> sizes;
+            if (!_sizeCache.TryGetValue(style, out sizes))
             {
-                size = CalcSize(gsTagLabel, text);
-                _tagSizeCache[text] = size;
+                sizes = new Dictionary<string, Vector2>();
+                _sizeCache[style] = sizes;
+            }
+
+            Vector2 size;
+            if (!sizes.TryGetValue(text, out size))
+            {
+                size = CalcSize(style, text);
+                sizes[text] = size;
             }
             return size;
+        }
+
+        /// <inheritdoc cref="CalcSizeCached"/>
+        public static float CalcWidthCached(GUIStyle style, string text)
+        {
+            return CalcSizeCached(style, text).x;
         }
 
         public bool DrawTile(
@@ -2676,7 +2695,7 @@ namespace COM3D2.MotionTimelineEditor
 
             if (!string.IsNullOrEmpty(content.tag))
             {
-                var tagSize = CalcTagSize(content.tag);
+                var tagSize = CalcSizeCached(gsTagLabel, content.tag);
                 var tagRect = new Rect(drawRect.x + drawRect.width - tagSize.x, drawRect.y, tagSize.x, tagSize.y);
 
                 var savedColor = GUI.color;
