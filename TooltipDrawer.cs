@@ -101,7 +101,8 @@ namespace COM3D2.MotionTimelineEditor
             {
                 return;
             }
-            GUI.Box(new Rect(0f, 0f, _windowRect.width, _windowRect.height), GUIContent.none, GUIView.gsBox);
+            // gsBox は半透明で、数行の説明が下の行の文字と重なって読めない
+            GUI.Box(new Rect(0f, 0f, _windowRect.width, _windowRect.height), GUIContent.none, GUIView.gsPopupWin);
             GUI.Label(new Rect(Padding.x, Padding.y,
                 _windowRect.width - Padding.x * 2f, _windowRect.height - Padding.y * 2f), _text, GUIView.gsLabel);
         }
