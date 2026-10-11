@@ -963,7 +963,8 @@ namespace COM3D2.MotionTimelineEditor
         /// </summary>
         private void RegisterTooltip(Rect drawRect, string tooltip)
         {
-            if (tooltip == null || IsOutOfScrollView(drawRect))
+            // 操作中も登録すると、押したままのドラッグラベルの上で説明が出る
+            if (tooltip == null || GUIUtility.hotControl != 0 || IsOutOfScrollView(drawRect))
             {
                 return;
             }
@@ -1157,7 +1158,8 @@ namespace COM3D2.MotionTimelineEditor
             float width,
             float height,
             bool enabled,
-            Action<bool> onChanged)
+            Action<bool> onChanged,
+            string tooltip = null)
         {
             var drawRect = GetDrawRect(width, height);
             BeginEnabled(enabled);
@@ -1165,6 +1167,7 @@ namespace COM3D2.MotionTimelineEditor
             bool newValue = GUI.Toggle(drawRect, value, label, gsToggle);
             EndColor();
             EndEnabled();
+            RegisterTooltip(drawRect, tooltip);
             this.NextElement(drawRect);
 
             if (newValue != value)
@@ -1181,9 +1184,15 @@ namespace COM3D2.MotionTimelineEditor
             return DrawToggle(label, value, width, height, true, onChanged);
         }
 
-        public bool DrawToggle(bool value, float width, float height, Action<bool> onChanged)
+        // 上の版に tooltip の既定値を足すと、DrawToggle(null, ...) が Texture2D 版とあいまいになり既存の呼び出しが壊れる
+        public bool DrawToggle(string label, bool value, float width, float height, Action<bool> onChanged, string tooltip)
         {
-            return DrawToggle(null, value, width, height, true, onChanged);
+            return DrawToggle(label, value, width, height, true, onChanged, tooltip);
+        }
+
+        public bool DrawToggle(bool value, float width, float height, Action<bool> onChanged, string tooltip = null)
+        {
+            return DrawToggle(null, value, width, height, true, onChanged, tooltip);
         }
 
         /// <summary>
@@ -1224,7 +1233,8 @@ namespace COM3D2.MotionTimelineEditor
             float height,
             Color? textColor = null,
             GUIStyle style = null,
-            Action onClickAction = null)
+            Action onClickAction = null,
+            string tooltip = null)
         {
             var drawRect = GetDrawRect(width, height);
             if (IsOutOfScrollView(drawRect))
@@ -1236,6 +1246,7 @@ namespace COM3D2.MotionTimelineEditor
             if (textColor != null) BeginColor(textColor.Value);
             GUI.Label(drawRect, text, style ?? gsLabel);
             if (textColor != null) EndColor();
+            RegisterTooltip(drawRect, tooltip);
             this.NextElement(drawRect);
 
             if (onClickAction != null
@@ -3054,6 +3065,8 @@ namespace COM3D2.MotionTimelineEditor
             public float value;
             public bool hiddenResetButton;
             public Action<float> onChanged;
+            /// <summary>ラベルにホバーしたとき出す説明。ラベルが無ければ出さない</summary>
+            public string tooltip;
         }
 
         public bool DrawSliderValue(SliderOption option)
@@ -3084,6 +3097,9 @@ namespace COM3D2.MotionTimelineEditor
                     var sensitivity = option.dragSensitivity > 0f
                         ? option.dragSensitivity
                         : SliderDragSensitivity(option.min, option.max, isInt);
+
+                    // subView で登録するとスクロール外の判定ができない (subView はスクロールを持たない)
+                    RegisterTooltip(new Rect(subViewRect.x, subViewRect.y, option.labelWidth, 20f), option.tooltip);
 
                     var snapStep = option.snapStep;
                     subView.DrawDragLabel(label, option.labelWidth, 20, sensitivity, delta =>
@@ -3222,7 +3238,8 @@ namespace COM3D2.MotionTimelineEditor
             Color color,
             Color resetColor,
             Action<Color> onColorChanged,
-            string displayLabel = null)
+            string displayLabel = null,
+            string tooltip = null)
         {
             fieldCache.UpdateColor(color, true);
             fieldCache.UpdateDefaultColor(resetColor);
@@ -3244,7 +3261,7 @@ namespace COM3D2.MotionTimelineEditor
                 var rowLabel = displayLabel ?? label;
                 if (rowLabel != null)
                 {
-                    DrawLabel(rowLabel, 90, 20);
+                    DrawLabel(rowLabel, 90, 20, tooltip: tooltip);
                 }
 
                 DrawTexture(texWhite, 20, 20, color);
