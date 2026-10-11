@@ -31,6 +31,12 @@ namespace COM3D2.MotionTimelineEditor
         private Action _onNo;
         private bool _isConfirm;
 
+        /// <summary>別のモーダルの中から最後に開いたフレーム番号 (-1 は未表示)</summary>
+        private int _openedFrame = -1;
+
+        /// <summary>CloseAndInvoke で応答を呼んでいる間か</summary>
+        private bool _isInvoking;
+
         private Rect _windowRect;
 
         public int windowIndex { get; set; }
@@ -94,6 +100,7 @@ namespace COM3D2.MotionTimelineEditor
             window._isConfirm = false;
             window._onYes = null;
             window._onNo = null;
+            window.MarkOpened();
         }
 
         /// <summary>はい/いいえの確認ダイアログを表示する</summary>
@@ -104,6 +111,18 @@ namespace COM3D2.MotionTimelineEditor
             window._isConfirm = true;
             window._onYes = onYes;
             window._onNo = onNo;
+            window.MarkOpened();
+        }
+
+        private void MarkOpened()
+        {
+            // 自分の応答から開き直したときまで描画を見送ると、同じモーダルを張り直すだけで
+            // 二重にはならないのに、2 フレームぶんダイアログが消えてちらつく
+            if (_isInvoking)
+            {
+                return;
+            }
+            _openedFrame = Time.frameCount;
         }
 
         /// <summary>
@@ -116,9 +135,19 @@ namespace COM3D2.MotionTimelineEditor
             _onYes = null;
             _onNo = null;
 
-            if (callback != null)
+            if (callback == null)
+            {
+                return;
+            }
+
+            _isInvoking = true;
+            try
             {
                 callback();
+            }
+            finally
+            {
+                _isInvoking = false;
             }
         }
 
@@ -154,6 +183,14 @@ namespace COM3D2.MotionTimelineEditor
         public void OnGUI()
         {
             if (_message == null)
+            {
+                return;
+            }
+
+            // 開いたフレームやその次のフレームに描くと、保存ポップアップなど別のモーダルの中から
+            // 開かれたとき、Unity が閉じたモーダルを次のフレームの最初のイベントまで覚えているため
+            // モーダルが 2 つとみなされ、拒否されてエラーが出る
+            if (Time.frameCount - _openedFrame <= 1)
             {
                 return;
             }
